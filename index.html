@@ -1988,7 +1988,7 @@ h2 em, h2.sec-title em, .sec-title em {
   <a href="#sec-rejects" data-num="12">Rejects</a>
   <a href="#sec-ioc" data-num="13">IOCs</a>
   <a href="#sec-ledger" data-num="14">Q&amp;A Ledger</a>
-  <a href="#sec-corrections" data-num="15">Appendix · A–Z + DD2→DD25</a>
+  <a href="#sec-corrections" data-num="15">Appendix · A–Z + DD2→DD28</a>
   <a href="#sec-close" data-num="XX">Closed</a>
   </div>
 </nav>
@@ -2286,7 +2286,7 @@ h2 em, h2.sec-title em, .sec-title em {
     <b>(2)</b> recon + command-injection discovery (<b>18:38 → 18:52</b> · DD23 fuzzing chain + drop), <b>(3)</b>
     the <b>3 h 32 m</b> attack (<b>18:38 → 22:10</b> cascade end; last-encrypt continues on WS02 until
     <b>22:56:42</b> per DD13.5), <b>(4)</b> the CTF-author forensic pack-up (22:12 → 22:47 · DD14). No row without
-    a cited source. Cross-linked: Addenda A–Z, PI / PR / IR / KT / MI / Ω, DD2 → DD25 — see
+    a cited source. Cross-linked: Addenda A–Z, PI / PR / IR / KT / MI / Ω, DD2 → DD28 — see
     <a href="#sec-corrections">Forensic Appendix</a>.
   </p>
 
@@ -2415,7 +2415,7 @@ h2 em, h2.sec-title em, .sec-title em {
   </tbody></table>
 
   <p style="margin-top:.9rem; font-size:.9em; color:var(--m)">
-    <b>How to read this:</b> every row cross-references at least one Addendum (A–Z / DD2 → DD25 / PI / PR / IR / KT / MI / Ω / …) in <a href="#sec-corrections">sec-corrections</a>.
+    <b>How to read this:</b> every row cross-references at least one Addendum (A–Z / DD2 → DD28 / PI / PR / IR / KT / MI / Ω / …) in <a href="#sec-corrections">sec-corrections</a>.
     Every Addendum contains the SQL/corpus citation for the claim. Addendum <b>Ω</b> reproduces every query. Nothing here is theory.
   </p>
 </section>
@@ -3930,7 +3930,7 @@ SQL</span>
 
 <!-- ======================= APPENDIX · FORENSIC DEEP-DIVES ======================= -->
 <section class="reveal" id="sec-corrections" style="background: linear-gradient(180deg, rgba(255,184,0,.06), transparent 60%); border-top:1px solid rgba(255,184,0,.25); border-bottom:1px solid rgba(255,184,0,.25);">
-  <div class="section-tag" style="color:var(--amber)">// 15 · appendix · forensic deep-dives A–Z + DD2 → DD25</div>
+  <div class="section-tag" style="color:var(--amber)">// 15 · appendix · forensic deep-dives A–Z + DD2 → DD28</div>
   <h2>Deep-dive <em>addenda</em> · proof layer</h2>
   <p class="lede" style="color:var(--amber)">
     Twenty-two addenda covering the details that didn't fit inline in the main narrative: the mathematical proof that
@@ -4011,11 +4011,11 @@ SQL</span>
   </p>
 
   <!-- ========= DEEP DIVE ADDENDA ========= -->
-  <h3 style="margin-top:1.8rem; color:var(--amber)">Deep-Dive Addenda · evidence bundles (A–Z + named codes + DD2 → DD25)</h3>
+  <h3 style="margin-top:1.8rem; color:var(--amber)">Deep-Dive Addenda · evidence bundles (A–Z + named codes + DD2 → DD28)</h3>
   <p style="color:var(--muted); font-size:12.5px; margin:.15rem 0 .7rem 0; line-height:1.55;">
     Three layers of depth: <b>A–Z</b> are the original per-topic bundles; the two-letter <b>named codes</b>
     (MI, PR, IR, FA, EX, DW, KT, TC, AV, CM, AC, ES, PI) are cross-cutting audits (MITRE map, persistence,
-    defender posture, etc.); <b>DD2 → DD25</b> are additional passes through the corpus, each surfacing
+    defender posture, etc.); <b>DD2 → DD28</b> are additional passes through the corpus, each surfacing
     findings the earlier passes missed — DD7 is a <em>major correction</em> (cloud persistence succeeded
     on 3/4 users, not blocked by quota), DD10 reconstructs the 103-min "silent window" on DC01 + SVR01
     minute by minute, DD11 extends the LSASS-dump chain-of-custody (rnSylwOz.exe → CreateRemoteThread →
@@ -4163,6 +4163,26 @@ SQL</span>
     (5) no <code>$STANDARD_INFORMATION</code> vs <code>$FILE_NAME</code> mismatch on the IamBatman MFT
     entry — <b>no timestomping</b>, the operator treated forensics as "happens later" not "happens
     in-window."
+    <b>DD26</b> closes the loop on the AD side with a corpus-wide authentication audit on
+    <code>serviceaccount</code>: the DC-side Security chain (4720 create → 4722 enable → 4724 pwd-set →
+    4738 attr-change → 4728 DA-add) fires cleanly at <code>20:02:14 → 20:03:05</code>, but
+    <b>zero 4624/4768/4769 events ever name <code>serviceaccount</code> as the principal</b>. This is the
+    <b>third independent stockpile-without-use instance</b> — matching DD16 (3 unused AKIA keys) and DD22
+    (unused local-Administrator NT hash). Three credential classes, same pattern: harvest, never reuse in the
+    capture window. <b>DD27</b> adds the negative-evidence sweep around <code>serviceaccount</code>: no SPN
+    was set (no Kerberoasting surface), no delegation flags (<code>TrustedForDelegation</code> /
+    <code>TrustedToAuthForDelegation</code> both absent), no <em>ProtectedUsers</em> membership, no
+    <em>Cannot be delegated</em> bit — <b>the account is a naked DA with no defensive hardening</b>, meaning
+    a future rotation of every human-admin password without disabling/deleting <code>serviceaccount</code>
+    leaves the backdoor intact.
+    <b>DD28</b> is a consolidated catalog of CTF-author-leftover artifacts that a DFIR reader should
+    mentally tag as "scenario infrastructure, not attacker IOCs" (extending DD14.5): the <code>C:\Kape\</code>
+    trees, the <code>bigmac.io.s3.amazonaws.com</code> tool mirror, the <code>localuser@RED1</code> / <code>198.51.100.3</code>
+    admin workstation, <code>Sethc.exe /AccessibilitySoundAgent</code> (Windows AccessibilityShell auto-launch,
+    not a StickyKeys backdoor), <code>curl</code> outbound to <code>bigmac.io</code>, the pre-attack
+    <code>216.82.9.162</code> admin hit at <code>13:39:16</code>, and the empty <code>barry-testing123123</code>
+    S3 bucket. Every item here should be <em>excluded</em> from SIEM tuning / IOC feeds when detection rules
+    are authored against this corpus.
     The report closes with two cross-cutting addenda: <b>VT</b> (VirusTotal enrichment of every hash and IP)
     and <b>OQ</b> (seven open questions this corpus cannot close on its own).
   </p>

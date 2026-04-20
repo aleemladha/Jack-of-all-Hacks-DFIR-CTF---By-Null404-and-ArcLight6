@@ -1552,9 +1552,8 @@ svg.graph-focused .host-clickable.host-focus > rect { stroke-width: 3; filter: d
 }
 
 .story-prose {
-  /* Single-column article flow · left-aligned like .lede · responsive cap for line length */
-  max-width: min(900px, 100%);
-  /* no margin: 0 auto — flush left with the rest of the section content */
+  /* Full-width article flow — spans the section content area like tables and grids. */
+  width: 100%;
 }
 .story-prose p {
   font-family: 'Inter', -apple-system, sans-serif;
@@ -2083,133 +2082,95 @@ h2 em, h2.sec-title em, .sec-title em {
   </div>
 </section>
 
-<!-- ======================= C2 ATTRIBUTION · Adaptix confirmed via RE ======================= -->
-<section class="reveal" id="sec-c2attrib" style="background: linear-gradient(180deg, rgba(0,255,156,.06), transparent 70%); border-top:2px solid rgba(0,255,156,.35); border-bottom:2px solid rgba(0,255,156,.35);">
-  <div class="section-tag" style="color:var(--green)">// 00.02 · c2 attribution · adaptix confirmed by source-to-binary RE</div>
-  <h2>The C2 is <em>Adaptix C2</em> — here is exactly how we proved it</h2>
-  <p class="lede" style="color:var(--green)">
-    The C2 is <b>Adaptix C2 (open-source)</b>. After reverse-engineering the 192 KB injected DLL we extracted
-    from SVR01's memory at VAD <code>0xa60000–0xa8efff</code> (SHA256
-    <code>6ef6b52fbdf585b5145971aa2303f41d691113669dc264465f87ac2e6861228c</code>), five independent
-    binary-level indicators map 1:1 to specific lines in the public Adaptix source repository at
-    <code>github.com/Adaptix-Framework/AdaptixC2</code>. This section documents the full verification
-    procedure so any DFIR expert can reproduce the match.
+<!-- ======================= EXECUTIVE BRIEFING (restructured · single column) ======================= -->
+<section class="reveal" id="sec-exec" style="background: linear-gradient(180deg, rgba(255,59,59,.04), transparent 50%);">
+  <div class="section-tag" style="color: var(--red); border-color: var(--red-d); background: rgba(255,59,59,.04);">// 00.2 · executive briefing</div>
+  <h2>What <em>actually</em> happened.</h2>
+  <p class="lede">
+    Plain-language summary for executive decisioning. Severity rating aligned to CISA CPG and NIST SP 800-61r3 framing.
   </p>
 
-  <h3 style="margin-top:.9rem">How we got here — the verification procedure, step by step</h3>
-  <div class="term">
-    <div class="term-head"><span class="dots"><b></b><b></b><b></b></span><span class="title">step-by-step reproduction · shell commands</span></div>
-<div class="term-body"><span class="comment"># STEP 1 · locate the injected DLL in SVR01 memory</span>
-<span class="comment">#   windows.malfind on the 17 GB memory image flagged PID 1332 (explorer.exe) with an</span>
-<span class="comment">#   anomalous private-committed region at 0xa60000-0xa8efff (MZ header, RX protection,</span>
-<span class="comment">#   not backed by any loaded image). Size: 192,512 bytes.</span>
-<span class="prompt">$</span> <span class="cmd">vol -f SVR01-memdump.dmp windows.malfind.Malfind --dump</span>
-<span class="out">→ /tmp/vol_out/malfind_dump/pid.1332.vad.0xa60000-0xa8efff.dmp   (192 KB PE32+)</span>
-
-<span class="comment"># STEP 2 · confirm it's a PE and pull its distinctive markers</span>
-<span class="prompt">$</span> <span class="cmd">file  /tmp/vol_out/malfind_dump/pid.1332.vad.0xa60000-0xa8efff.dmp</span>
-<span class="out">PE32+ executable for MS Windows 5.02 (DLL), x86-64 (stripped to external PDB), 11 sections</span>
-
-<span class="prompt">$</span> <span class="cmd">sha256sum !$</span>
-<span class="out">6ef6b52fbdf585b5145971aa2303f41d691113669dc264465f87ac2e6861228c</span>
-
-<span class="comment"># STEP 3 · extract all strings, hunt for distinctive markers</span>
-<span class="prompt">$</span> <span class="cmd">strings -a -n 8 /tmp/vol_out/malfind_dump/pid.1332.vad.0xa60000-0xa8efff.dmp | sort -u</span>
-<span class="out">  \\.\pipe\%08lx                            <span class="hit"># &lt;- distinctive pipe format template</span>
-  Mingw-w64 runtime failure:                <span class="hit"># &lt;- MinGW compile marker</span>
-  file.dll                                  <span class="hit"># &lt;- PE export module name</span>
-  _Z11GetVersionsv                          <span class="hit"># &lt;- Itanium-ABI mangled C++ export</span>
-  VirtualProtect · VirtualQuery · TlsGetValue · Sleep · *CriticalSection*   (KERNEL32)
-  _initterm · _amsg_exit · abort · calloc · realloc · free · vfprintf       (msvcrt)
-  (no CreateProcess · no CreateFile · no WSAStartup · no CreateRemoteThread in IAT)</span>
-
-<span class="comment"># STEP 4 · clone Adaptix source</span>
-<span class="prompt">$</span> <span class="cmd">git clone --depth 1 https://github.com/Adaptix-Framework/AdaptixC2.git /tmp/adaptix-src</span>
-
-<span class="comment"># STEP 5 · grep the pipe format — the single most distinctive marker</span>
-<span class="prompt">$</span> <span class="cmd">grep -rn "pipe.*%08lx" /tmp/adaptix-src/</span>
-<span class="out">/tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/beacon/Commander.cpp:1000:
-    ApiWin->snprintf(pipeName, 18, "\\\\.\\pipe\\%08lx", r1);
-/tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/beacon/Commander.cpp:1006:
-    ApiWin->snprintf(pipeName, 18, "\\\\.\\pipe\\%08lx", r1);                       <span class="hit"># EXACT MATCH</span></span>
-
-<span class="comment"># STEP 6 · grep the export symbol</span>
-<span class="prompt">$</span> <span class="cmd">grep -rn "GetVersions" /tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/beacon/main.cpp</span>
-<span class="out">main.cpp:104: extern "C" __declspec(dllexport) void CALLBACK GetVersions(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow)
-main.cpp:156: __declspec(dllexport) void GetVersions() {};                         <span class="hit"># EXACT MATCH</span></span>
-
-<span class="comment"># STEP 7 · confirm the hard-coded DLL filename</span>
-<span class="prompt">$</span> <span class="cmd">grep -rn "file.dll" /tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/pl_main.go</span>
-<span class="out">pl_main.go:667: buildPath = tempDir + "/file.dll"      <span class="hit"># DLL build path</span>
-pl_main.go:691: buildPath = tempDir + "/file.dll"      <span class="hit"># Shellcode build path (same filename)</span></span>
-
-<span class="comment"># STEP 8 · confirm the compiler</span>
-<span class="prompt">$</span> <span class="cmd">head -5 /tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/Makefile</span>
-<span class="out">CXX_X64 := x86_64-w64-mingw32-g++              <span class="hit"># MinGW-w64 x64 · matches our VAD dump</span>
-CXX_X86 := i686-w64-mingw32-g++</span>
-
-<span class="comment"># STEP 9 · confirm minimal-IAT dynamic-resolution pattern</span>
-<span class="prompt">$</span> <span class="cmd">ls /tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/beacon/Api*</span>
-<span class="out">ApiDefines.h · ApiLoader.cpp · ApiLoader.h    <span class="hit"># &lt;- Adaptix's runtime API resolver</span></span>
-</div>
+  <!-- Severity banner — single hero row -->
+  <div class="sev-banner">
+    <div class="sev-lvl">
+      <div class="lab">Severity</div>
+      <div class="val">CRITICAL</div>
+      <div class="sub">Identity-tier breach · full AD compromise</div>
+    </div>
+    <div class="sev-grid">
+      <div class="sg"><div class="k">Dwell</div><div class="v">~164 min</div><div class="d">18:38:29 → 22:22 · 2h 44m active · DD23</div></div>
+      <div class="sg"><div class="k">Hosts encrypted</div><div class="v">5 / 6</div><div class="d">DC02 + SVR01 + WS01 + WS02 + DC01</div></div>
+      <div class="sg"><div class="k">Recoverability</div><div class="v red">None on-prem</div><div class="d">shadow copies wiped across estate</div></div>
+      <div class="sg"><div class="k">Cloud blast</div><div class="v">IAM role leaked</div><div class="d">164 × S3 GetObject off-instance</div></div>
+      <div class="sg"><div class="k">Data exfil</div><div class="v">data.cab + ntds.dit</div><div class="d">SFTP · 11,327 bytes S3 · ADCS unknown</div></div>
+      <div class="sg"><div class="k">Regulatory</div><div class="v amber">Privileged comms</div><div class="d">legal firm · client PII in scope</div></div>
+    </div>
   </div>
 
-  <h3 style="margin-top:.9rem">The five indicators, side by side</h3>
-  <table class="tbl" style="margin-top:.3rem">
-    <thead>
-      <tr>
-        <th style="width:28%">Marker in the VAD dump</th>
-        <th style="width:38%">Exact Adaptix source match</th>
-        <th>Why it's distinctive</th>
-      </tr>
-    </thead>
+  <h3>Root Causes · Five Control Failures</h3>
+  <table class="tbl" style="font-size: 13px;">
+    <thead><tr><th>#</th><th>Root Cause</th><th>TTP</th><th>Control Gap</th></tr></thead>
     <tbody>
-      <tr>
-        <td><code>"\\.\\pipe\\%08lx"</code> format string in <code>.rdata</code></td>
-        <td><code>beacon/Commander.cpp:1000</code><br/><code>ApiWin-&gt;snprintf(pipeName, 18, "\\\\.\\pipe\\%08lx", r1);</code><br/>(again at line 1006)</td>
-        <td>Adaptix uses lowercase-8-hex pipe names for internal <code>shell</code>/<code>exec</code> IPC. Cobalt Strike uses <code>msagent_XXXX</code>; Havoc uses user-configured strings; Sliver allows free-form. This format is rare enough to be a fingerprint.</td>
-      </tr>
-      <tr>
-        <td>Export <code>_Z11GetVersionsv</code> (Itanium-ABI name mangling of <code>void GetVersions()</code>)</td>
-        <td><code>beacon/main.cpp:104</code>, <code>main.cpp:156</code><br/><code>__declspec(dllexport) void CALLBACK GetVersions(...)</code></td>
-        <td><b>Adaptix's default rundll32 entry-point</b> — named to look like a benign "version info" helper. <code>rundll32 file.dll,GetVersions</code> is the stock Adaptix DLL-sideload command.</td>
-      </tr>
-      <tr>
-        <td>PE export-directory Module Name = <code>file.dll</code></td>
-        <td><code>pl_main.go:667</code><br/><code>buildPath = tempDir + "/file.dll"</code></td>
-        <td>Adaptix hard-codes the generic <code>file.dll</code> name for every DLL-format build output. Intentionally forgettable; shows up as-is in the PE directory.</td>
-      </tr>
-      <tr>
-        <td>MinGW-w64 x64 toolchain · Itanium C++ ABI · <code>Mingw-w64 runtime failure:</code> literal · 11 sections (.text .data .rdata .pdata .xdata .bss .edata .idata .CRT .tls .reloc)</td>
-        <td><code>Makefile:3</code>: <code>CXX_X64 := x86_64-w64-mingw32-g++</code><br/><code>beacon/crt.cpp:27</code>: <code>#error "Unsupported compiler: use MinGW, MSVC, Clang, or Zig"</code></td>
-        <td>Adaptix's <b>official build pipeline is MinGW</b>. Cobalt Strike 4 is MSVC; Havoc is MSVC; Sliver is Go (different PE shape). MinGW + those sections + C++ mangled exports = Adaptix or an Adaptix-compatible fork.</td>
-      </tr>
-      <tr>
-        <td>Import table is minimal: KERNEL32 sync/memory primitives + msvcrt CRT runtime only. <b>No</b> <code>CreateProcess / CreateFile / WSAStartup / CreateRemoteThread / Socket</code> / any networking symbol.</td>
-        <td><code>beacon/ApiLoader.cpp</code> + <code>ApiWin</code> / <code>ApiNt</code> structs resolve Win32 and NTAPI at runtime via hashed name lookup.</td>
-        <td>Explicit Adaptix OPSEC: the loader stub has nothing suspicious in its static IAT; every operational capability is resolved dynamically. Matches the VAD dump bit-for-bit.</td>
-      </tr>
+      <tr><td class="a">1</td><td>Unvalidated query string reaches OS shell on public IIS app</td><td class="c">T1190</td><td class="m">Input validation · WAF off for .aspx</td></tr>
+      <tr><td class="a">2</td><td>Unquoted service path <code>C:\TFTP Server\…</code> executable-writable by non-admin</td><td class="c">T1574.009</td><td class="m">Service hardening · SDDL review</td></tr>
+      <tr><td class="a">3</td><td>EC2 IAM role usable from any caller — no IMDS hop-limit, no IP binding</td><td class="c">T1552.005</td><td class="m">IMDSv2 enforcement · session scoping</td></tr>
+      <tr><td class="a">4</td><td><code>DisableRestrictedAdmin</code> reg key writable by service accounts → PtH RDP viable</td><td class="c">T1112 + T1021.001</td><td class="m">Tier-0 GPO · reg ACL</td></tr>
+      <tr><td class="a">5</td><td>Workstation can reach SYSVOL-hosted <code>.exe</code>; authenticated write to SYSVOL</td><td class="c">T1053.005 + T1486</td><td class="m">SYSVOL ACL hardening · AppLocker/WDAC</td></tr>
     </tbody>
   </table>
 
-  <h3 style="margin-top:.9rem">Attribution verdict</h3>
-  <div style="padding:.7rem 1rem; border-left:3px solid var(--green); background:rgba(0,255,156,.04)">
-    <p style="margin:.2rem 0"><b>Family:</b> <b style="color:var(--green)">Adaptix C2 (open-source)</b> · <code>github.com/Adaptix-Framework/AdaptixC2</code></p>
-    <p style="margin:.2rem 0"><b>Build variant observed:</b> DLL format (per <code>pl_main.go</code> DLL branch line 665). Two transport configs compiled for this engagement: SMB (<code>rnSylwOz.exe</code>, used for lateral to SVR01 via ADMIN$ + injected into Explorer) + HTTP/HTTPS or TCP (<code>iis.exe</code>, used for egress to <code>173.230.136.180:8443</code>).</p>
-    <p style="margin:.2rem 0"><b>Confidence:</b> <b style="color:var(--green)">HIGH</b>. Any two of the five indicators alone would be strongly suggestive; all five together make an alternative explanation implausible (would require an attacker to copy-paste Commander.cpp, main.cpp, pl_main.go, and the Makefile from Adaptix — which would itself be "Adaptix-derived").</p>
-    <p style="margin:.2rem 0"><b>What's <em>still</em> unknown (stated honestly):</b></p>
-    <ul style="margin:.2rem 0 .5rem 1.2rem; font-size:.9em">
-      <li><b>The on-disk beacon binaries</b> (<code>iis.exe</code>, <code>SolarWinds.exe</code>, <code>rnSylwOz.exe</code>) are not in the KAPE trees. We have their Sysmon EID 1 hashes — SHA256 / MD5 / IMPHASH — but not the bytes. Recovery path: re-run <code>vol windows.dumpfiles --pid 9112 --dump</code> against the memory image to carve the beacon binary out of memory.</li>
-      <li><b>The second-stage payload</b>. The VAD dump is the <em>loader stub</em>; its static IAT has no networking primitives. The real capabilities are pulled over the C2 uplink at runtime. Without PCAP of <code>173.230.136.180:8443</code> traffic we cannot recover the stage-2.</li>
-      <li><b>The exact Adaptix commit / fork</b> the attacker compiled from. Both <code>Commander.cpp:1000</code> and <code>main.cpp:104</code> have been stable across recent Adaptix versions; exact commit would require listener-side analysis or a sample-to-sample byte diff against a locally-compiled Adaptix build.</li>
-    </ul>
+  <!-- Mitigation roadmap · horizontal Gantt-style -->
+  <h3 style="margin-top: 36px;">Mitigation Roadmap</h3>
+  <div class="roadmap">
+    <div class="rm-track">
+      <div class="rm-phase p0"><span class="rm-when">P0 · ≤ 48h</span><span class="rm-title">Contain &amp; Rotate</span></div>
+      <div class="rm-phase p1"><span class="rm-when">P1 · ≤ 2 weeks</span><span class="rm-title">Harden &amp; Detect</span></div>
+      <div class="rm-phase p2"><span class="rm-when">P2 · ≤ 30 days</span><span class="rm-title">Architect Out</span></div>
+    </div>
+    <div class="rm-body">
+      <div class="rm-col p0">
+        <div class="rm-h">Immediate containment</div>
+        <ul>
+          <li>Rotate <b>krbtgt × 2</b> (48h apart) · force reset every account in ntds.dit</li>
+          <li>Rotate &amp; rescope <code>iam_role_iisserver</code> · revoke outstanding STS sessions</li>
+          <li>Enforce <b>IMDSv2 only</b> · <code>hop-limit=1</code> on every EC2</li>
+          <li>Patch <code>CheckStatus.aspx</code> input validation · take IIS offline until reviewed</li>
+          <li>Block egress to <code>172.236.127.251</code> + <code>173.230.136.180</code> at perimeter</li>
+          <li>Disable <code>serviceaccount</code> in AD · audit all logons since 20:02:14</li>
+        </ul>
+      </div>
+      <div class="rm-col p1">
+        <div class="rm-h">Hardening &amp; Detection</div>
+        <ul>
+          <li>Remove write ACL on <code>HKLM\…\Lsa\DisableRestrictedAdmin</code> for non-Tier-0</li>
+          <li>Restrict SYSVOL write to Domain Admins · audit EID 5136 on sysvol OUs</li>
+          <li>Sweep all services for unquoted paths · fix <code>SolarWindsTFTP</code> et al.</li>
+          <li>EDR rules: <code>w3wp.exe → certutil/curl</code> · cross-host <code>vssadmin delete</code> · transient tasks &lt;60s</li>
+          <li>Sigma rule for 5-stage Impacket <code>--use-vss</code> fingerprint</li>
+          <li>Forward Security.evtx + Sysmon to SIEM · 90-day hot retention</li>
+        </ul>
+      </div>
+      <div class="rm-col p2">
+        <div class="rm-h">Architectural</div>
+        <ul>
+          <li>Network-segment IIS DMZ from 10.3.10.0/24 · jump host for AD admin</li>
+          <li>AppLocker / WDAC on DCs + file servers · deny SYSVOL <code>.exe</code> execution</li>
+          <li>Honey-token IFEO keys (<code>taskmgr.exe\Debugger</code>) as tripwires</li>
+          <li>Hunt outbound HTTPS on :8443 against low-rep ASNs (modern OSS C2 frameworks including Adaptix/Sliver/Havoc frequently default to this)</li>
+          <li>Immutable off-estate backups · MFA-delete + object-lock</li>
+          <li>Purple-team replay this exact kill chain quarterly</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
-  <p style="margin-top:.7rem; font-size:.88em; color:var(--m)">
-    C2-family attribution is placed up front because it's the question most DFIR reviewers ask first. <b>Every claim in this section has a direct filesystem-level reproduction step</b>. The Adaptix source match is checkable in under five minutes from a fresh WSL/Linux shell. The only prerequisite is the 17 GB SVR01 memory dump (or any copy of the injected DLL at SHA256 <code>6ef6b52f…228c</code>).
-  </p>
+  <div class="residual-note">
+    <b>Residual risk.</b> With <code>ntds.dit</code> exfiltrated, every domain password hash is compromised
+    <b>permanently</b>. Double krbtgt rotation stops golden-ticket abuse for new sessions, but offline cracking
+    of the lifted NTDS yields plaintext passwords for any account that isn't forced to rotate. Treat this as a
+    <b>full identity-tier breach</b>, not a host-tier incident.
+  </div>
 </section>
-<!-- ======================= FORENSIC APPENDIX · evidence bundles ======================= -->
 
 <!-- ======================= THE STORY · narrative opener ======================= -->
 <section class="reveal" id="sec-story" style="background: linear-gradient(180deg, rgba(0,255,156,.025), transparent 40%);">
@@ -2315,7 +2276,6 @@ CXX_X86 := i686-w64-mingw32-g++</span>
     </p>
   </div>
 </section>
-
 
 <!-- ======================= MASTER TIMELINE · no gaps ======================= -->
 <section class="reveal" id="sec-master-timeline" style="background: linear-gradient(180deg, rgba(100,200,255,.05), transparent 80%); border-top:2px solid rgba(100,200,255,.35); border-bottom:2px solid rgba(100,200,255,.35);">
@@ -2460,96 +2420,6 @@ CXX_X86 := i686-w64-mingw32-g++</span>
   </p>
 </section>
 
-<!-- ======================= EXECUTIVE BRIEFING (restructured · single column) ======================= -->
-<section class="reveal" id="sec-exec" style="background: linear-gradient(180deg, rgba(255,59,59,.04), transparent 50%);">
-  <div class="section-tag" style="color: var(--red); border-color: var(--red-d); background: rgba(255,59,59,.04);">// 00.2 · executive briefing</div>
-  <h2>What <em>actually</em> happened.</h2>
-  <p class="lede">
-    Plain-language summary for executive decisioning. Severity rating aligned to CISA CPG and NIST SP 800-61r3 framing.
-  </p>
-
-  <!-- Severity banner — single hero row -->
-  <div class="sev-banner">
-    <div class="sev-lvl">
-      <div class="lab">Severity</div>
-      <div class="val">CRITICAL</div>
-      <div class="sub">Identity-tier breach · full AD compromise</div>
-    </div>
-    <div class="sev-grid">
-      <div class="sg"><div class="k">Dwell</div><div class="v">~164 min</div><div class="d">18:38:29 → 22:22 · 2h 44m active · DD23</div></div>
-      <div class="sg"><div class="k">Hosts encrypted</div><div class="v">5 / 6</div><div class="d">DC02 + SVR01 + WS01 + WS02 + DC01</div></div>
-      <div class="sg"><div class="k">Recoverability</div><div class="v red">None on-prem</div><div class="d">shadow copies wiped across estate</div></div>
-      <div class="sg"><div class="k">Cloud blast</div><div class="v">IAM role leaked</div><div class="d">164 × S3 GetObject off-instance</div></div>
-      <div class="sg"><div class="k">Data exfil</div><div class="v">data.cab + ntds.dit</div><div class="d">SFTP · 11,327 bytes S3 · ADCS unknown</div></div>
-      <div class="sg"><div class="k">Regulatory</div><div class="v amber">Privileged comms</div><div class="d">legal firm · client PII in scope</div></div>
-    </div>
-  </div>
-
-  <h3>Root Causes · Five Control Failures</h3>
-  <table class="tbl" style="font-size: 13px;">
-    <thead><tr><th>#</th><th>Root Cause</th><th>TTP</th><th>Control Gap</th></tr></thead>
-    <tbody>
-      <tr><td class="a">1</td><td>Unvalidated query string reaches OS shell on public IIS app</td><td class="c">T1190</td><td class="m">Input validation · WAF off for .aspx</td></tr>
-      <tr><td class="a">2</td><td>Unquoted service path <code>C:\TFTP Server\…</code> executable-writable by non-admin</td><td class="c">T1574.009</td><td class="m">Service hardening · SDDL review</td></tr>
-      <tr><td class="a">3</td><td>EC2 IAM role usable from any caller — no IMDS hop-limit, no IP binding</td><td class="c">T1552.005</td><td class="m">IMDSv2 enforcement · session scoping</td></tr>
-      <tr><td class="a">4</td><td><code>DisableRestrictedAdmin</code> reg key writable by service accounts → PtH RDP viable</td><td class="c">T1112 + T1021.001</td><td class="m">Tier-0 GPO · reg ACL</td></tr>
-      <tr><td class="a">5</td><td>Workstation can reach SYSVOL-hosted <code>.exe</code>; authenticated write to SYSVOL</td><td class="c">T1053.005 + T1486</td><td class="m">SYSVOL ACL hardening · AppLocker/WDAC</td></tr>
-    </tbody>
-  </table>
-
-  <!-- Mitigation roadmap · horizontal Gantt-style -->
-  <h3 style="margin-top: 36px;">Mitigation Roadmap</h3>
-  <div class="roadmap">
-    <div class="rm-track">
-      <div class="rm-phase p0"><span class="rm-when">P0 · ≤ 48h</span><span class="rm-title">Contain &amp; Rotate</span></div>
-      <div class="rm-phase p1"><span class="rm-when">P1 · ≤ 2 weeks</span><span class="rm-title">Harden &amp; Detect</span></div>
-      <div class="rm-phase p2"><span class="rm-when">P2 · ≤ 30 days</span><span class="rm-title">Architect Out</span></div>
-    </div>
-    <div class="rm-body">
-      <div class="rm-col p0">
-        <div class="rm-h">Immediate containment</div>
-        <ul>
-          <li>Rotate <b>krbtgt × 2</b> (48h apart) · force reset every account in ntds.dit</li>
-          <li>Rotate &amp; rescope <code>iam_role_iisserver</code> · revoke outstanding STS sessions</li>
-          <li>Enforce <b>IMDSv2 only</b> · <code>hop-limit=1</code> on every EC2</li>
-          <li>Patch <code>CheckStatus.aspx</code> input validation · take IIS offline until reviewed</li>
-          <li>Block egress to <code>172.236.127.251</code> + <code>173.230.136.180</code> at perimeter</li>
-          <li>Disable <code>serviceaccount</code> in AD · audit all logons since 20:02:14</li>
-        </ul>
-      </div>
-      <div class="rm-col p1">
-        <div class="rm-h">Hardening &amp; Detection</div>
-        <ul>
-          <li>Remove write ACL on <code>HKLM\…\Lsa\DisableRestrictedAdmin</code> for non-Tier-0</li>
-          <li>Restrict SYSVOL write to Domain Admins · audit EID 5136 on sysvol OUs</li>
-          <li>Sweep all services for unquoted paths · fix <code>SolarWindsTFTP</code> et al.</li>
-          <li>EDR rules: <code>w3wp.exe → certutil/curl</code> · cross-host <code>vssadmin delete</code> · transient tasks &lt;60s</li>
-          <li>Sigma rule for 5-stage Impacket <code>--use-vss</code> fingerprint</li>
-          <li>Forward Security.evtx + Sysmon to SIEM · 90-day hot retention</li>
-        </ul>
-      </div>
-      <div class="rm-col p2">
-        <div class="rm-h">Architectural</div>
-        <ul>
-          <li>Network-segment IIS DMZ from 10.3.10.0/24 · jump host for AD admin</li>
-          <li>AppLocker / WDAC on DCs + file servers · deny SYSVOL <code>.exe</code> execution</li>
-          <li>Honey-token IFEO keys (<code>taskmgr.exe\Debugger</code>) as tripwires</li>
-          <li>Hunt outbound HTTPS on :8443 against low-rep ASNs (modern OSS C2 frameworks including Adaptix/Sliver/Havoc frequently default to this)</li>
-          <li>Immutable off-estate backups · MFA-delete + object-lock</li>
-          <li>Purple-team replay this exact kill chain quarterly</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-  <div class="residual-note">
-    <b>Residual risk.</b> With <code>ntds.dit</code> exfiltrated, every domain password hash is compromised
-    <b>permanently</b>. Double krbtgt rotation stops golden-ticket abuse for new sessions, but offline cracking
-    of the lifted NTDS yields plaintext passwords for any account that isn't forced to rotate. Treat this as a
-    <b>full identity-tier breach</b>, not a host-tier incident.
-  </div>
-</section>
-
 <!-- ======================= EXEC SUMMARY ======================= -->
 <section class="reveal" id="sec-overview">
   <div class="section-tag">// 01 technical overview</div>
@@ -2610,6 +2480,133 @@ CXX_X86 := i686-w64-mingw32-g++</span>
       <div class="verdict">IMDSv2 double-step from IIS EC2 → role <code>iam_role_iisserver</code>. <code>aws sts get-caller-identity</code> at <code>21:42:11</code>. 164 <code>s3:GetObject</code> calls totaling 11,327 bytes. Persistence attempt failed with AccessDenied.</div>
     </div>
   </div>
+</section>
+
+<!-- ======================= C2 ATTRIBUTION · Adaptix confirmed via RE ======================= -->
+<section class="reveal" id="sec-c2attrib" style="background: linear-gradient(180deg, rgba(0,255,156,.06), transparent 70%); border-top:2px solid rgba(0,255,156,.35); border-bottom:2px solid rgba(0,255,156,.35);">
+  <div class="section-tag" style="color:var(--green)">// 00.02 · c2 attribution · adaptix confirmed by source-to-binary RE</div>
+  <h2>The C2 is <em>Adaptix C2</em> — here is exactly how we proved it</h2>
+  <p class="lede" style="color:var(--green)">
+    The C2 is <b>Adaptix C2 (open-source)</b>. After reverse-engineering the 192 KB injected DLL we extracted
+    from SVR01's memory at VAD <code>0xa60000–0xa8efff</code> (SHA256
+    <code>6ef6b52fbdf585b5145971aa2303f41d691113669dc264465f87ac2e6861228c</code>), five independent
+    binary-level indicators map 1:1 to specific lines in the public Adaptix source repository at
+    <code>github.com/Adaptix-Framework/AdaptixC2</code>. This section documents the full verification
+    procedure so any DFIR expert can reproduce the match.
+  </p>
+
+  <h3 style="margin-top:.9rem">How we got here — the verification procedure, step by step</h3>
+  <div class="term">
+    <div class="term-head"><span class="dots"><b></b><b></b><b></b></span><span class="title">step-by-step reproduction · shell commands</span></div>
+<div class="term-body"><span class="comment"># STEP 1 · locate the injected DLL in SVR01 memory</span>
+<span class="comment">#   windows.malfind on the 17 GB memory image flagged PID 1332 (explorer.exe) with an</span>
+<span class="comment">#   anomalous private-committed region at 0xa60000-0xa8efff (MZ header, RX protection,</span>
+<span class="comment">#   not backed by any loaded image). Size: 192,512 bytes.</span>
+<span class="prompt">$</span> <span class="cmd">vol -f SVR01-memdump.dmp windows.malfind.Malfind --dump</span>
+<span class="out">→ /tmp/vol_out/malfind_dump/pid.1332.vad.0xa60000-0xa8efff.dmp   (192 KB PE32+)</span>
+
+<span class="comment"># STEP 2 · confirm it's a PE and pull its distinctive markers</span>
+<span class="prompt">$</span> <span class="cmd">file  /tmp/vol_out/malfind_dump/pid.1332.vad.0xa60000-0xa8efff.dmp</span>
+<span class="out">PE32+ executable for MS Windows 5.02 (DLL), x86-64 (stripped to external PDB), 11 sections</span>
+
+<span class="prompt">$</span> <span class="cmd">sha256sum !$</span>
+<span class="out">6ef6b52fbdf585b5145971aa2303f41d691113669dc264465f87ac2e6861228c</span>
+
+<span class="comment"># STEP 3 · extract all strings, hunt for distinctive markers</span>
+<span class="prompt">$</span> <span class="cmd">strings -a -n 8 /tmp/vol_out/malfind_dump/pid.1332.vad.0xa60000-0xa8efff.dmp | sort -u</span>
+<span class="out">  \\.\pipe\%08lx                            <span class="hit"># &lt;- distinctive pipe format template</span>
+  Mingw-w64 runtime failure:                <span class="hit"># &lt;- MinGW compile marker</span>
+  file.dll                                  <span class="hit"># &lt;- PE export module name</span>
+  _Z11GetVersionsv                          <span class="hit"># &lt;- Itanium-ABI mangled C++ export</span>
+  VirtualProtect · VirtualQuery · TlsGetValue · Sleep · *CriticalSection*   (KERNEL32)
+  _initterm · _amsg_exit · abort · calloc · realloc · free · vfprintf       (msvcrt)
+  (no CreateProcess · no CreateFile · no WSAStartup · no CreateRemoteThread in IAT)</span>
+
+<span class="comment"># STEP 4 · clone Adaptix source</span>
+<span class="prompt">$</span> <span class="cmd">git clone --depth 1 https://github.com/Adaptix-Framework/AdaptixC2.git /tmp/adaptix-src</span>
+
+<span class="comment"># STEP 5 · grep the pipe format — the single most distinctive marker</span>
+<span class="prompt">$</span> <span class="cmd">grep -rn "pipe.*%08lx" /tmp/adaptix-src/</span>
+<span class="out">/tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/beacon/Commander.cpp:1000:
+    ApiWin->snprintf(pipeName, 18, "\\\\.\\pipe\\%08lx", r1);
+/tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/beacon/Commander.cpp:1006:
+    ApiWin->snprintf(pipeName, 18, "\\\\.\\pipe\\%08lx", r1);                       <span class="hit"># EXACT MATCH</span></span>
+
+<span class="comment"># STEP 6 · grep the export symbol</span>
+<span class="prompt">$</span> <span class="cmd">grep -rn "GetVersions" /tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/beacon/main.cpp</span>
+<span class="out">main.cpp:104: extern "C" __declspec(dllexport) void CALLBACK GetVersions(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow)
+main.cpp:156: __declspec(dllexport) void GetVersions() {};                         <span class="hit"># EXACT MATCH</span></span>
+
+<span class="comment"># STEP 7 · confirm the hard-coded DLL filename</span>
+<span class="prompt">$</span> <span class="cmd">grep -rn "file.dll" /tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/pl_main.go</span>
+<span class="out">pl_main.go:667: buildPath = tempDir + "/file.dll"      <span class="hit"># DLL build path</span>
+pl_main.go:691: buildPath = tempDir + "/file.dll"      <span class="hit"># Shellcode build path (same filename)</span></span>
+
+<span class="comment"># STEP 8 · confirm the compiler</span>
+<span class="prompt">$</span> <span class="cmd">head -5 /tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/Makefile</span>
+<span class="out">CXX_X64 := x86_64-w64-mingw32-g++              <span class="hit"># MinGW-w64 x64 · matches our VAD dump</span>
+CXX_X86 := i686-w64-mingw32-g++</span>
+
+<span class="comment"># STEP 9 · confirm minimal-IAT dynamic-resolution pattern</span>
+<span class="prompt">$</span> <span class="cmd">ls /tmp/adaptix-src/AdaptixServer/extenders/beacon_agent/src_beacon/beacon/Api*</span>
+<span class="out">ApiDefines.h · ApiLoader.cpp · ApiLoader.h    <span class="hit"># &lt;- Adaptix's runtime API resolver</span></span>
+</div>
+  </div>
+
+  <h3 style="margin-top:.9rem">The five indicators, side by side</h3>
+  <table class="tbl" style="margin-top:.3rem">
+    <thead>
+      <tr>
+        <th style="width:28%">Marker in the VAD dump</th>
+        <th style="width:38%">Exact Adaptix source match</th>
+        <th>Why it's distinctive</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>"\\.\\pipe\\%08lx"</code> format string in <code>.rdata</code></td>
+        <td><code>beacon/Commander.cpp:1000</code><br/><code>ApiWin-&gt;snprintf(pipeName, 18, "\\\\.\\pipe\\%08lx", r1);</code><br/>(again at line 1006)</td>
+        <td>Adaptix uses lowercase-8-hex pipe names for internal <code>shell</code>/<code>exec</code> IPC. Cobalt Strike uses <code>msagent_XXXX</code>; Havoc uses user-configured strings; Sliver allows free-form. This format is rare enough to be a fingerprint.</td>
+      </tr>
+      <tr>
+        <td>Export <code>_Z11GetVersionsv</code> (Itanium-ABI name mangling of <code>void GetVersions()</code>)</td>
+        <td><code>beacon/main.cpp:104</code>, <code>main.cpp:156</code><br/><code>__declspec(dllexport) void CALLBACK GetVersions(...)</code></td>
+        <td><b>Adaptix's default rundll32 entry-point</b> — named to look like a benign "version info" helper. <code>rundll32 file.dll,GetVersions</code> is the stock Adaptix DLL-sideload command.</td>
+      </tr>
+      <tr>
+        <td>PE export-directory Module Name = <code>file.dll</code></td>
+        <td><code>pl_main.go:667</code><br/><code>buildPath = tempDir + "/file.dll"</code></td>
+        <td>Adaptix hard-codes the generic <code>file.dll</code> name for every DLL-format build output. Intentionally forgettable; shows up as-is in the PE directory.</td>
+      </tr>
+      <tr>
+        <td>MinGW-w64 x64 toolchain · Itanium C++ ABI · <code>Mingw-w64 runtime failure:</code> literal · 11 sections (.text .data .rdata .pdata .xdata .bss .edata .idata .CRT .tls .reloc)</td>
+        <td><code>Makefile:3</code>: <code>CXX_X64 := x86_64-w64-mingw32-g++</code><br/><code>beacon/crt.cpp:27</code>: <code>#error "Unsupported compiler: use MinGW, MSVC, Clang, or Zig"</code></td>
+        <td>Adaptix's <b>official build pipeline is MinGW</b>. Cobalt Strike 4 is MSVC; Havoc is MSVC; Sliver is Go (different PE shape). MinGW + those sections + C++ mangled exports = Adaptix or an Adaptix-compatible fork.</td>
+      </tr>
+      <tr>
+        <td>Import table is minimal: KERNEL32 sync/memory primitives + msvcrt CRT runtime only. <b>No</b> <code>CreateProcess / CreateFile / WSAStartup / CreateRemoteThread / Socket</code> / any networking symbol.</td>
+        <td><code>beacon/ApiLoader.cpp</code> + <code>ApiWin</code> / <code>ApiNt</code> structs resolve Win32 and NTAPI at runtime via hashed name lookup.</td>
+        <td>Explicit Adaptix OPSEC: the loader stub has nothing suspicious in its static IAT; every operational capability is resolved dynamically. Matches the VAD dump bit-for-bit.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:.9rem">Attribution verdict</h3>
+  <div style="padding:.7rem 1rem; border-left:3px solid var(--green); background:rgba(0,255,156,.04)">
+    <p style="margin:.2rem 0"><b>Family:</b> <b style="color:var(--green)">Adaptix C2 (open-source)</b> · <code>github.com/Adaptix-Framework/AdaptixC2</code></p>
+    <p style="margin:.2rem 0"><b>Build variant observed:</b> DLL format (per <code>pl_main.go</code> DLL branch line 665). Two transport configs compiled for this engagement: SMB (<code>rnSylwOz.exe</code>, used for lateral to SVR01 via ADMIN$ + injected into Explorer) + HTTP/HTTPS or TCP (<code>iis.exe</code>, used for egress to <code>173.230.136.180:8443</code>).</p>
+    <p style="margin:.2rem 0"><b>Confidence:</b> <b style="color:var(--green)">HIGH</b>. Any two of the five indicators alone would be strongly suggestive; all five together make an alternative explanation implausible (would require an attacker to copy-paste Commander.cpp, main.cpp, pl_main.go, and the Makefile from Adaptix — which would itself be "Adaptix-derived").</p>
+    <p style="margin:.2rem 0"><b>What's <em>still</em> unknown (stated honestly):</b></p>
+    <ul style="margin:.2rem 0 .5rem 1.2rem; font-size:.9em">
+      <li><b>The on-disk beacon binaries</b> (<code>iis.exe</code>, <code>SolarWinds.exe</code>, <code>rnSylwOz.exe</code>) are not in the KAPE trees. We have their Sysmon EID 1 hashes — SHA256 / MD5 / IMPHASH — but not the bytes. Recovery path: re-run <code>vol windows.dumpfiles --pid 9112 --dump</code> against the memory image to carve the beacon binary out of memory.</li>
+      <li><b>The second-stage payload</b>. The VAD dump is the <em>loader stub</em>; its static IAT has no networking primitives. The real capabilities are pulled over the C2 uplink at runtime. Without PCAP of <code>173.230.136.180:8443</code> traffic we cannot recover the stage-2.</li>
+      <li><b>The exact Adaptix commit / fork</b> the attacker compiled from. Both <code>Commander.cpp:1000</code> and <code>main.cpp:104</code> have been stable across recent Adaptix versions; exact commit would require listener-side analysis or a sample-to-sample byte diff against a locally-compiled Adaptix build.</li>
+    </ul>
+  </div>
+
+  <p style="margin-top:.7rem; font-size:.88em; color:var(--m)">
+    C2-family attribution is placed up front because it's the question most DFIR reviewers ask first. <b>Every claim in this section has a direct filesystem-level reproduction step</b>. The Adaptix source match is checkable in under five minutes from a fresh WSL/Linux shell. The only prerequisite is the 17 GB SVR01 memory dump (or any copy of the injected DLL at SHA256 <code>6ef6b52f…228c</code>).
+  </p>
 </section>
 
 <!-- ======================= ATTACK GRAPH ======================= -->
@@ -3447,9 +3444,9 @@ SQL</span>
 
 <!-- ======================= ACT V · IMPACT ======================= -->
 <section class="act-card reveal" id="sec-act5">
-  <div class="num">ACT V // 21:03:54 — 22:10:52 UTC</div>
+  <div class="num">ACT V // 21:03:54 — 22:56:42 UTC</div>
   <h2 class="title">Detonation &amp; <span>Shadow Wipe</span></h2>
-  <div class="timecode">→ 01:06:58 elapsed · SYSVOL → 5-host impact wave · T1053.005 → T1486 → T1490</div>
+  <div class="timecode">→ 01:52:48 elapsed · SYSVOL stage → 66 s fan-out at 22:09:46 → last encrypt <code>brndlog.txt</code> on WS02 at 22:56:42 (DD13.5) · T1053.005 → T1486 → T1490</div>
   <p class="description">
     The operator used Active Directory's <b>own replication infrastructure as distribution</b>: at
     <b>21:03:54</b> <code>IamBatman.exe</code> was dropped to <code>\\DC02\SYSVOL\sysvol\</code> by

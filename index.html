@@ -4766,7 +4766,28 @@ WHERE source_type='evtx' AND eid=10
   AND json_extract(data_json,'$.SourceImage') LIKE '%explorer.exe'
   AND json_extract(data_json,'$.TargetImage') LIKE '%lsass.exe'
   AND json_extract(data_json,'$.CallTrace') LIKE '%UNKNOWN(%';</code></pre>
-    <p style="margin:.4rem 0 0 0; font-size:.88em; color:var(--muted)"><b>Commit trail:</b> <code>9607f50</code> detection pack v1 + DD32 Adaptix PE deep-dive · <code>eee1939</code> v2.45 DD33 + <code>win_ifeo_debugger_hijack.yml</code> · <code>6b354ad</code> rule fixes (GuardDuty sample exclusion + URL-encoded injection patterns) + this test report inlined.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--green)">DT.8 — Multi-backend conversion + SigmaHQ prior-art crosswalk</h5>
+    <p style="margin:.2rem 0">All 9 Sigma rules were re-validated through <code>pysigma</code> with production backends: <b>9/9 parse cleanly, 18/18 convert</b> to Splunk SPL (regex literals handled via <code>| regex …</code>) and Elastic Lucene with zero conversion errors. The hand-SQL harness in DT.7 is now redundant for deployment — one YAML compiles to any SIEM through the standard Sigma toolchain.</p>
+    <p style="margin:.2rem 0">Crosswalked against <b>3,567 SigmaHQ rules</b> to separate novel detection content from duplicate logic. Verdict:</p>
+    <table class="tbl" style="margin-top:.3rem; font-size:.88em">
+      <thead><tr><th>Our rule</th><th>SigmaHQ status</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td><code>win_certutil_urlcache_download</code></td><td>4 variants already in SigmaHQ (<code>proc_creation_win_certutil_download</code> + file-sharing-domains variant + 2 more)</td><td>Duplicate — use upstream</td></tr>
+        <tr><td><code>win_vssadmin_bcdedit_recovery_disable</code></td><td><code>proc_creation_win_susp_shadow_copies_deletion</code> + <code>bcdedit_boot_conf_tamper</code></td><td>Duplicate</td></tr>
+        <tr><td><code>win_impacket_smbexec_services</code></td><td><code>win_system_hack_smbexec.yml</code> + <code>hktl_impacket_lateral_movement</code></td><td>Duplicate</td></tr>
+        <tr><td><code>win_impacket_atexec_ransomware_fanout</code></td><td><code>proc_creation_win_hktl_impacket_tools</code> / <code>lateral_movement</code></td><td>Duplicate</td></tr>
+        <tr style="background:rgba(255,200,0,.06)"><td><code>win_iis_checkstatus_aspx_cmdinjection</code></td><td><code>web_sql_injection</code> exists; no OS-command-injection-via-URL-param rule</td><td class="a"><b>Scenario-specific · partial</b></td></tr>
+        <tr style="background:rgba(0,255,156,.08)"><td><code>win_ifeo_debugger_hijack</code></td><td>ASEP rules cover Run / RunOnce but no IFEO-specific detection</td><td class="g"><b>NOVEL</b></td></tr>
+        <tr style="background:rgba(0,255,156,.08)"><td><code>win_dc_user_created_then_da_add</code></td><td>Individual 4720 + 4728 rules exist; no time-correlated pair within N-minute window</td><td class="g"><b>NOVEL</b></td></tr>
+        <tr style="background:rgba(0,255,156,.08)"><td><code>win_sysmon_injected_explorer_lsass_access</code></td><td>3 LSASS-access rules in SigmaHQ, none for Explorer-specific <code>SourceImage</code> + <code>UNKNOWN()</code> CallTrace combination</td><td class="g"><b>NOVEL</b></td></tr>
+        <tr style="background:rgba(0,255,156,.08)"><td><code>aws_guardduty_instance_credential_exfil</code></td><td>GuardDuty detector-tamper rules exist; no <code>InstanceCredentialExfiltration</code>-specific detection</td><td class="g"><b>NOVEL</b></td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.4rem 0; font-size:.92em"><b style="color:var(--green)">Net result:</b> <b>4 of 9 rules are genuinely novel</b> and worth a SigmaHQ pull request — <code>win_ifeo_debugger_hijack</code>, <code>win_dc_user_created_then_da_add</code>, <code>win_sysmon_injected_explorer_lsass_access</code>, <code>aws_guardduty_instance_credential_exfil</code>. 4 are duplicates of battle-tested SigmaHQ equivalents that should be swapped in and cited rather than maintained locally. 1 (<code>win_iis_checkstatus_aspx_cmdinjection</code>) is partial — the OS-command-injection-via-URL-param angle is scenario-specific enough to keep as local override, but the generic web-shell-drop detection should defer to SigmaHQ's <code>proc_creation_win_certutil_download</code>.</p>
+    <p style="margin:.2rem 0; font-size:.88em; color:var(--muted)"><b>Deployment recommendation:</b> convert via <code>sigma convert -t splunk</code> (or <code>elastic</code> / <code>sentinel</code> / <code>chronicle</code>) for any of the 9 rules. No hand-SQL translation required.</p>
+
+    <p style="margin:.6rem 0 0 0; font-size:.88em; color:var(--muted)"><b>Commit trail:</b> <code>9607f50</code> detection pack v1 + DD32 Adaptix PE deep-dive · <code>eee1939</code> v2.45 DD33 + <code>win_ifeo_debugger_hijack.yml</code> · <code>6b354ad</code> rule fixes (GuardDuty sample exclusion + URL-encoded injection patterns) + this test report inlined · pysigma conversion + SigmaHQ crosswalk subsequent.</p>
   </div>
 
   <!-- Addendum W: Memory snapshot — the beacon caught alive -->

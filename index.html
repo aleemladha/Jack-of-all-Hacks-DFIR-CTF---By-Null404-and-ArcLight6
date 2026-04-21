@@ -1508,6 +1508,18 @@ svg.graph-focused .host-clickable.host-focus > rect { stroke-width: 3; filter: d
   0%, 100% { box-shadow: 0 0 10px rgba(0,255,156,.3); transform: translate(-50%,-50%) scale(1); }
   50%      { box-shadow: 0 0 16px rgba(0,255,156,.8); transform: translate(-50%,-50%) scale(1.15); }
 }
+/* Novel rules (no SigmaHQ equivalent — DT.8 · upstream-PR-worthy): amber ring + inner green dot */
+.hm-sigma-mark.novel::after {
+  width: 16px; height: 16px;
+  border: 2px solid var(--amber);
+  background: radial-gradient(circle, var(--green) 0 2.5px, transparent 3px);
+  box-shadow: 0 0 12px rgba(255,200,0,.55);
+  animation: sigmaPulseNovel 1.8s ease-in-out infinite;
+}
+@keyframes sigmaPulseNovel {
+  0%, 100% { box-shadow: 0 0 12px rgba(255,200,0,.4); transform: translate(-50%,-50%) scale(1); }
+  50%      { box-shadow: 0 0 20px rgba(255,200,0,.9); transform: translate(-50%,-50%) scale(1.2); }
+}
 
 .sigma-narrative {
   margin-top: 14px; padding: 14px 16px;
@@ -4785,9 +4797,54 @@ WHERE source_type='evtx' AND eid=10
       </tbody>
     </table>
     <p style="margin:.4rem 0; font-size:.92em"><b style="color:var(--green)">Net result:</b> <b>4 of 9 rules are genuinely novel</b> and worth a SigmaHQ pull request — <code>win_ifeo_debugger_hijack</code>, <code>win_dc_user_created_then_da_add</code>, <code>win_sysmon_injected_explorer_lsass_access</code>, <code>aws_guardduty_instance_credential_exfil</code>. 4 are duplicates of battle-tested SigmaHQ equivalents that should be swapped in and cited rather than maintained locally. 1 (<code>win_iis_checkstatus_aspx_cmdinjection</code>) is partial — the OS-command-injection-via-URL-param angle is scenario-specific enough to keep as local override, but the generic web-shell-drop detection should defer to SigmaHQ's <code>proc_creation_win_certutil_download</code>.</p>
-    <p style="margin:.2rem 0; font-size:.88em; color:var(--muted)"><b>Deployment recommendation:</b> convert via <code>sigma convert -t splunk</code> (or <code>elastic</code> / <code>sentinel</code> / <code>chronicle</code>) for any of the 9 rules. No hand-SQL translation required.</p>
 
-    <p style="margin:.6rem 0 0 0; font-size:.88em; color:var(--muted)"><b>Commit trail:</b> <code>9607f50</code> detection pack v1 + DD32 Adaptix PE deep-dive · <code>eee1939</code> v2.45 DD33 + <code>win_ifeo_debugger_hijack.yml</code> · <code>6b354ad</code> rule fixes (GuardDuty sample exclusion + URL-encoded injection patterns) + this test report inlined · pysigma conversion + SigmaHQ crosswalk subsequent.</p>
+    <h5 style="margin-top:.6rem; color:var(--green)">DT.9 — Three-tier detection-pack layout (SigmaHQ integration · commit <code>8155881</code>)</h5>
+    <p style="margin:.2rem 0">DT.8's crosswalk turned into a concrete on-disk restructure. The detection directory now has three Sigma tiers plus the unchanged YARA layer:</p>
+    <pre class="block" style="font-size:.82em; background:#0a0f16; padding:.5rem .7rem; border:1px solid #1f2833; overflow-x:auto; color:#c8d3e0"><code>detections/
+├── sigma/              — 4 novel rules (local canonical · NOVEL per DT.8)
+├── sigma-upstream/     — same 4 rules, SigmaHQ-convention formatted, PR-ready
+├── sigma-superseded/   — 5 rules duplicating SigmaHQ; kept with scenario notes
+└── yara/adaptix_null404.yar — 8 YARA rules (no SigmaHQ equivalents · YARA layer separate)</code></pre>
+    <p style="margin:.4rem 0; font-size:.92em"><b>Four upstream-PR-ready files</b> (in <code>detections/sigma-upstream/</code>) with their target SigmaHQ paths:</p>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>Our file</th><th>SigmaHQ target path on PR</th></tr></thead>
+      <tbody>
+        <tr><td><code>registry_set_ifeo_debugger_hijack.yml</code></td><td><code>rules/windows/registry/registry_set/</code></td></tr>
+        <tr><td><code>win_security_user_created_added_to_domain_admins_rapid.yml</code></td><td><code>rules/windows/builtin/security/</code></td></tr>
+        <tr><td><code>proc_access_win_lsass_unbacked_shellcode_calltrace.yml</code></td><td><code>rules/windows/process_access/</code></td></tr>
+        <tr><td><code>aws_guardduty_instance_credential_exfil_response.yml</code></td><td><code>rules/cloud/aws/guardduty/</code> (may need new directory)</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.4rem 0; font-size:.92em"><b>Before vs after</b> — what the SigmaHQ integration changed:</p>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>Aspect</th><th>Before</th><th>After</th></tr></thead>
+      <tbody>
+        <tr><td>Rule count to maintain</td><td>9 locally</td><td><b>4 novel locally</b> + cite-to-SigmaHQ for 5</td></tr>
+        <tr><td>SIEM conversions</td><td>Hand-SQL only (DT.7 harness)</td><td><b>pySigma → Splunk SPL + Elastic Lucene</b> · one YAML → any backend</td></tr>
+        <tr><td>Rule IDs</td><td><code>n0404-dd26-da-promo</code> slugs</td><td><b>UUIDs</b> (Sigma-spec compliant)</td></tr>
+        <tr><td>Format compliance</td><td>Custom</td><td><b>Full SigmaHQ conventions</b> (tags, selection blocks, references, falsepositives, fields)</td></tr>
+        <tr><td>Validation</td><td>2 rule bugs in initial hand-SQL (DT.4)</td><td><b>0 conversion errors</b> across 4 backends</td></tr>
+        <tr><td>Test-report output</td><td>hand-SQL results only</td><td>Splunk SPL + Lucene + SQL <em>per rule</em>, each in its own panel</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.4rem 0; font-size:.9em"><b>Final harness run:</b> <span style="color:var(--green)"><b>16 YARA · 4 Sigma conversions · 4 SQL validations · 0 failures ✅</b></span></p>
+
+    <h5 style="margin-top:.6rem; color:var(--green)">DT.10 — Example pySigma output (GuardDuty rule, auto-generated, zero manual translation)</h5>
+    <p style="margin:.2rem 0; font-size:.92em">Same YAML source — <code>aws_guardduty_instance_credential_exfil_response.yml</code> — compiled to two production SIEM backends:</p>
+    <pre class="block" style="font-size:.82em; background:#0a0f16; padding:.5rem .7rem; border:1px solid #1f2833; overflow-x:auto; color:#c8d3e0"><code># Splunk SPL
+finding.type="UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS"
+finding.severity&gt;=8
+NOT (finding.service.additionalInfo.sample=true
+     finding.resource.instanceDetails.instanceId="i-99999999")
+| table finding.id,finding.service.action.awsApiCallAction.remoteIpDetails.ipAddressV4,...</code></pre>
+    <pre class="block" style="font-size:.82em; background:#0a0f16; padding:.5rem .7rem; border:1px solid #1f2833; overflow-x:auto; color:#c8d3e0"><code># Elastic Lucene
+(finding.type:UnauthorizedAccess\:IAMUser\/InstanceCredentialExfiltration.OutsideAWS
+ AND finding.severity:&gt;=8)
+AND (NOT (finding.service.additionalInfo.sample:true
+          AND finding.resource.instanceDetails.instanceId:i\-99999999))</code></pre>
+    <p style="margin:.2rem 0; font-size:.88em; color:var(--muted)">Both outputs auto-generated from the single YAML via <code>sigma convert -t splunk|lucene</code>. No hand-translation required. DT.4's GuardDuty bug-fix (sample exclusion for <code>sample:true</code> + <code>i-99999999</code>) is preserved in the upstream format and propagates through both conversions identically.</p>
+
+    <p style="margin:.6rem 0 0 0; font-size:.88em; color:var(--muted)"><b>Commit trail:</b> <code>9607f50</code> detection pack v1 + DD32 Adaptix PE deep-dive · <code>eee1939</code> v2.45 DD33 + <code>win_ifeo_debugger_hijack.yml</code> · <code>6b354ad</code> rule fixes (GuardDuty sample exclusion + URL-encoded injection patterns) + test report inlined · <code>8155881</code> SigmaHQ integration complete (three-tier layout · pysigma · UUIDs · PR-ready upstream format).</p>
   </div>
 
   <!-- Addendum W: Memory snapshot — the beacon caught alive -->
@@ -9103,28 +9160,31 @@ const HM_BURSTS = {
 };
 
 // Sigma rule fire cells: [host, minute, ruleName, detail]
+// Each Sigma fire: [host, minute, rule, detail, novel?]
+// novel=true  → unique to this engagement (no SigmaHQ equivalent) · upstream-PR-worthy (DT.8)
+// novel=false → SigmaHQ has a battle-tested equivalent; rule fired here for parity but swap for upstream in production
 const HM_SIGMA = [
   // Pre-existing Sigma ruleset
-  ['IIS',   48,  'solarwindstftp-service-hijack',   '19:38:02 · SYSTEM via writable-ACL swap + AdaptixC2 first callback (RE-confirmed · Addendum V)'],
-  ['DC01',  79,  'ntds-shadowcopy-copy',            '20:09:03 · impacket smbexec.py --use-vss · cmd /C copy …ShadowCopy*\\Windows\\NTDS\\ntds.dit (DD10.1)'],
-  ['CLOUD', 172, 'cloudtrail-sts-off-instance',     '21:42:11 · STS session from 212.8.249.213 (off-instance)'],
-  ['CLOUD', 176, 'cloudtrail-failed-createaccesskey','~21:46 · AttachUserPolicy / CreateAccessKey jb_aws_cli · LimitExceeded (DD7 corrects: 3 later attempts SUCCEEDED)'],
-  ['CLOUD', 187, 'guardduty-instance-cred-exfil',   '21:57:18 · GuardDuty Sev 8 · InstanceCredentialExfiltration.OutsideAWS · detection worked, response did not (DD18.2 — 11m22s before detonation)'],
-  ['CLOUD', 191, 'guardduty-instance-cred-exfil',   '22:01:10 · GuardDuty Sev 8 re-fires · same detector · still no human response (DD18.2)'],
-  ['CLOUD', 204, 'guardduty-attacksequence-iam',    '22:14:44 · GuardDuty Sev 9 · AttackSequence:IAM/CompromisedCredentials — highest-severity cloud alert of the incident (DD18.2)'],
-  ['WS02',  188, 'sysav-ransomware-launch',         '21:58:34 · BOTCHED first IamBatman (; bash-syntax bug, DD12.2)'],
-  ['WS02',  188, 'vssadmin-shadow-wipe-pre-ransom', '21:58:36 · vssadmin delete shadows + 2× bcdedit · 10-min SIEM window before encryption (DD12.2)'],
-  ['WS02',  198, 'sysav-ransomware-launch',         '22:08:40 · successful IamBatman via atexec.py task mIglpUCO (DD12.1)'],
-  ['WS01',  199, 'sysav-ransomware-launch',         '22:09:16 · cmd /c \\\\laf-dc02\\sysvol\\sysAV.bat via atexec.py task OlgyLYbd'],
-  ['SVR01', 199, 'sysav-ransomware-launch',         '22:09:46 · atexec.py task pRlGOUon fan-out from SVR01 orchestrator (DD12.1/4)'],
-  ['DC01',  200, 'sysav-ransomware-launch',         '22:10:14 · atexec.py task Kypxgyzl · NTDS host wiped'],
-  ['DC02',  202, 'sysav-ransomware-launch',         '22:10:52 · atexec.py task WZWkUVGL · DC02 last (SYSVOL owner)'],
+  ['IIS',   48,  'solarwindstftp-service-hijack',   '19:38:02 · SYSTEM via writable-ACL swap + AdaptixC2 first callback (RE-confirmed · Addendum V)', false],
+  ['DC01',  79,  'ntds-shadowcopy-copy',            '20:09:03 · impacket smbexec.py --use-vss · cmd /C copy …ShadowCopy*\\Windows\\NTDS\\ntds.dit (DD10.1)', false],
+  ['CLOUD', 172, 'cloudtrail-sts-off-instance',     '21:42:11 · STS session from 212.8.249.213 (off-instance)', false],
+  ['CLOUD', 176, 'cloudtrail-failed-createaccesskey','~21:46 · AttachUserPolicy / CreateAccessKey jb_aws_cli · LimitExceeded (DD7 corrects: 3 later attempts SUCCEEDED)', false],
+  ['CLOUD', 187, 'guardduty-instance-cred-exfil',   '21:57:18 · GuardDuty Sev 8 · InstanceCredentialExfiltration.OutsideAWS · detection worked, response did not (DD18.2 — 11m22s before detonation) · NOVEL rule (no SigmaHQ equivalent)', true],
+  ['CLOUD', 191, 'guardduty-instance-cred-exfil',   '22:01:10 · GuardDuty Sev 8 re-fires · same detector · still no human response (DD18.2) · NOVEL', true],
+  ['CLOUD', 204, 'guardduty-attacksequence-iam',    '22:14:44 · GuardDuty Sev 9 · AttackSequence:IAM/CompromisedCredentials — highest-severity cloud alert of the incident (DD18.2) · NOVEL (InstanceCredentialExfiltration coverage absent from SigmaHQ)', true],
+  ['WS02',  188, 'sysav-ransomware-launch',         '21:58:34 · BOTCHED first IamBatman (; bash-syntax bug, DD12.2)', false],
+  ['WS02',  188, 'vssadmin-shadow-wipe-pre-ransom', '21:58:36 · vssadmin delete shadows + 2× bcdedit · 10-min SIEM window before encryption (DD12.2)', false],
+  ['WS02',  198, 'sysav-ransomware-launch',         '22:08:40 · successful IamBatman via atexec.py task mIglpUCO (DD12.1)', false],
+  ['WS01',  199, 'sysav-ransomware-launch',         '22:09:16 · cmd /c \\\\laf-dc02\\sysvol\\sysAV.bat via atexec.py task OlgyLYbd', false],
+  ['SVR01', 199, 'sysav-ransomware-launch',         '22:09:46 · atexec.py task pRlGOUon fan-out from SVR01 orchestrator (DD12.1/4)', false],
+  ['DC01',  200, 'sysav-ransomware-launch',         '22:10:14 · atexec.py task Kypxgyzl · NTDS host wiped', false],
+  ['DC02',  202, 'sysav-ransomware-launch',         '22:10:52 · atexec.py task WZWkUVGL · DC02 last (SYSVOL owner)', false],
   // DD11 — Process injection & smoking-gun LSASS chain
-  ['SVR01', 73,  'lsass-floating-shellcode-dump',   '20:03:30 · Explorer TID 10020 opens LSASS 0x1010 · UNKNOWN CallTrace · abedgdaa.dmp written (DD11.1)'],
-  // DD10 — AD persistence chain on SVR01 during DC01 dump
-  ['SVR01', 72,  'domain-admin-backdoor-create',    '20:02:14 · Explorer.EXE → net user serviceaccount P@ssw0RD1! /add /domain (DD10.2)'],
-  ['DC01',  73,  'da-group-elevation',              '20:03:05 · 4728 serviceaccount → Domain Admins (authoritative on DC · DD10.2)'],
-  ['SVR01', 83,  'disable-restrictedadmin-pth',     '20:13:26 · reg add DisableRestrictedAdmin=0 (hands-on · opens PtH-over-RDP · DD10.2)'],
+  ['SVR01', 73,  'lsass-floating-shellcode-dump',   '20:03:30 · Explorer TID 10020 opens LSASS 0x1010 · UNKNOWN CallTrace · abedgdaa.dmp written (DD11.1) · NOVEL (Explorer+UNKNOWN() combination absent from SigmaHQ)', true],
+  // DD10 — AD persistence chain on SVR01 during DC01 dump · NOVEL pair-correlation
+  ['SVR01', 72,  'domain-admin-backdoor-create',    '20:02:14 · Explorer.EXE → net user serviceaccount P@ssw0RD1! /add /domain (DD10.2) · NOVEL (pair-correlation with DA-add, no time-windowed SigmaHQ equivalent)', true],
+  ['DC01',  73,  'da-group-elevation',              '20:03:05 · 4728 serviceaccount → Domain Admins (authoritative on DC · DD10.2) · NOVEL (pair-correlation within 5-min window)', true],
+  ['SVR01', 83,  'disable-restrictedadmin-pth',     '20:13:26 · reg add DisableRestrictedAdmin=0 (hands-on · opens PtH-over-RDP · DD10.2)', false],
   // Addendum V YARA rules — disk + memory binary matches
   ['IIS',   26,  'yara-smbpivot-beacon-solarwinds', '19:16:52 · Null404_SMBPivot_Beacon_SolarWinds_rnSylwOz — IMPHASH 37E28CA3 + MinGW + pipe template + ~188 KB (Addendum V)'],
   ['SVR01', 71,  'yara-injectedloader-vad-0xa60000','20:01:16 · Null404_InjectedLoader_VAD_0xA60000 — memory-resident stub, MinGW runtime failure string + ApiLoader pattern (Addendum V)'],
@@ -9217,9 +9277,9 @@ function intensityAt(host, m) {
 
   // Sigma fires indexed by "host|minute"
   const sigmaIdx = {};
-  HM_SIGMA.forEach(([host, m, rule, detail]) => {
+  HM_SIGMA.forEach(([host, m, rule, detail, novel]) => {
     const k = `${host}|${m}`;
-    (sigmaIdx[k] = sigmaIdx[k] || []).push({ rule, detail });
+    (sigmaIdx[k] = sigmaIdx[k] || []).push({ rule, detail, novel: !!novel });
   });
 
   const tip = document.getElementById('heatmapTip');
@@ -9247,7 +9307,7 @@ function intensityAt(host, m) {
         const clk = minuteToClock(m);
         htT.textContent = `${h.label} · ${clk}`;
         let e2 = i === 0 ? 'quiet' : `intensity ${i}/5 — ${['','background','minor','active','heavy','extreme'][i]}`;
-        if (sig) e2 += `  ·  SIGMA: ${sig.map(s => s.rule).join(', ')}`;
+        if (sig) e2 += `  ·  SIGMA: ${sig.map(s => `${s.novel ? '[NOVEL] ' : ''}${s.rule}`).join(', ')}`;
         htE.textContent = e2;
         tip.classList.add('show');
       });
@@ -9269,7 +9329,7 @@ function intensityAt(host, m) {
   const sigLab = document.createElement('div');
   sigLab.className = 'heatmap-row-label';
   sigLab.style.color = 'var(--green)';
-  sigLab.innerHTML = `SIGMA<span class="role">rule would fire</span>`;
+  sigLab.innerHTML = `SIGMA<span class="role">green ring = rule fires · amber ring = NOVEL (upstream-PR-worthy per DT.8)</span>`;
   grid.appendChild(sigLab);
   const sigRow = document.createElement('div');
   sigRow.className = 'heatmap-sigma';
@@ -9279,8 +9339,9 @@ function intensityAt(host, m) {
     // find any host matching this minute
     const fires = HM_SIGMA.filter(s => s[1] === m);
     if (fires.length) {
-      cell.className = 'hm-sigma-mark';
-      cell.title = fires.map(f => `${f[2]} · ${f[3]}`).join('\n');
+      const anyNovel = fires.some(f => f[4]);
+      cell.className = anyNovel ? 'hm-sigma-mark novel' : 'hm-sigma-mark';
+      cell.title = fires.map(f => `${f[4] ? '[NOVEL] ' : ''}${f[2]} · ${f[3]}`).join('\n');
       cell.addEventListener('click', () => {
         setScrubber(m * 60);
         document.getElementById('sec-graph').scrollIntoView({behavior:'smooth', block:'start'});

